@@ -1,23 +1,30 @@
-1. 技術スタック選定
-Framework: Next.js (App Router)
+## 1. 技術スタック選定
 
-Language: TypeScript
+### Framework
+- **Next.js** (App Router)
 
-State Management:
+### Language
+- **TypeScript**
 
-Server State: TanStack Query (React Query) — APIとの同期、キャッシュ管理。
+### State Management
+- **Server State**: TanStack Query (React Query) — APIとの同期、キャッシュ管理
+- **Client State**: Zustand — 進行中のアクティビティ（ランニング中か等）のグローバル管理
 
-Client State: Zustand — 進行中のアクティビティ（ランニング中か等）のグローバル管理。
+### Styling
+- **Tailwind CSS + Shadcn/ui** — 迅速なUI構築
 
-Styling: Tailwind CSS + Shadcn/ui — 迅速なUI構築。
+### Maps/GPS
+- **Mapbox GL JS** (or React Map GL) — ランニング軌跡の可視化
 
-Maps/GPS: Mapbox GL JS (or React Map GL) — ランニング軌跡の可視化。
+### Realtime
+- **Supabase Realtime** — API仕様書にあるWebSocket/Realtime要件を補完
 
-Realtime: Supabase Realtime (API仕様書にあるWebSocket/Realtime要件を補完)
+### Data Fetching
+- **OpenAPI TypeScript** — GoのSwagger(swagger.json)から型を自動生成し、APIクライアントを型安全にする
 
-Data Fetching: OpenAPI TypeScript — GoのSwagger(swagger.json)から型を自動生成し、APIクライアントを型安全にする。
+---
 
-2. ディレクトリ構造（App Router最適化）
+## 2. ディレクトリ構造（App Router最適化）
 ```
 src/
 ├── app/                  # App Router（Page, Layout, Loading）
@@ -38,43 +45,49 @@ src/
 ├── store/                # Zustand (activeActivityStore等)
 └── types/                # APIレスポンス等の型定義
 ```
-3. フロントエンドの重要アーキテクチャ戦略
-① APIクライアントの型安全 (Source of Truth)
-Go側の docs/swagger.json を利用して、フロントエンドの型を自動生成します。
-これにより、UserResponse や TeamStatusResponse のフィールド変更が即座にフロントエンドに波及し、コンパイルエラーで検知できます。
 
-② ハイブリッドGPSトラッキング (Heartbeat)
+---
+
+## 3. フロントエンドの重要アーキテクチャ戦略
+
+### ① APIクライアントの型安全 (Source of Truth)
+Go側の `docs/swagger.json` を利用して、フロントエンドの型を自動生成します。
+
+これにより、`UserResponse` や `TeamStatusResponse` のフィールド変更が即座にフロントエンドに波及し、コンパイルエラーで検知できます。
+
+### ② ハイブリッドGPSトラッキング (Heartbeat)
 ランニングモードの仕様（開始 → GPS送信 → 完了）に対応するため、以下の設計にします。
 
-ブラウザの Geolocation API を watchPosition で使用。
+1. ブラウザの `Geolocation API` を `watchPosition` で使用
+2. Zustand でメモリ上に GPSPoints を蓄積
+3. 一定間隔（例：30秒ごと）または一定距離ごとに `POST /api/activities/running/:id/gps` へバッチ送信
 
-Zustand でメモリ上に GPSPoints を蓄積。
+これにより、通信断絶時もブラウザ上でデータを保持し、再開時に同期できます。
 
-一定間隔（例：30秒ごと）または一定距離ごとに POST /api/activities/running/:id/gps へバッチ送信。 これにより、通信断絶時もブラウザ上でデータを保持し、再開時に同期できます。
+### ③ 縄のビジュアル・状態管理 (UI logic)
+`GET /api/teams/:id/status` から得られる `current_hp` に基づき、縄の状態を出し分けます。
 
-③ 縄のビジュアル・状態管理 (UI logic)
-GET /api/teams/:id/status から得られる current_hp に基づき、縄の状態を出し分けます。
+- **状態分岐**: HP 100-70, 69-40, 39-10, 0 の4段階をCSSアニメーションまたはSVGフィルタで表現
+- **リアルタイム通知**: 他のメンバーの完了通知は、Supabase Realtime等のイベントをフックに TanStack Query のキャッシュを invalidate（再取得）させることで、最新の `members_progress` を反映
 
-状態分岐: HP 100-70, 69-40, 39-10, 0 の4段階をCSSアニメーションまたはSVGフィルタで表現します。
+### ④ 認証ミドルウェア (Firebase Integration)
+- `middleware.ts` を活用し、Firebaseのセッションがあるかを確認
+- APIへのリクエスト時は、Firebase Client SDKから取得した `idToken` を `Authorization: Bearer <token>` として付与する Fetch Wrapper を作成
 
-リアルタイム通知: 他のメンバーの完了通知は、Supabase Realtime等のイベントをフックに TanStack Query のキャッシュを invalidate（再取得）させることで、最新の members_progress を反映します。
+---
 
-④ 認証ミドルウェア (Firebase Integration)
-middleware.ts を活用し、Firebaseのセッションがあるかを確認します。
-APIへのリクエスト時は、Firebase Client SDKから取得した idToken を Authorization: Bearer <token> として付与する Fetch Wrapper を作成します。
+## 4. ハッカソン向けの実装優先順位
 
-4. ハッカソン向けの実装優先順位
-Firebase認証 & ユーザー登録: POST /api/users/me の疎通。
+1. **Firebase認証 & ユーザー登録**: `POST /api/users/me` の疎通
+2. **チーム結成フロー**: 招待コードによるマッチング
+3. **アクティビティ計測**: ランニングのGPS蓄積と finish 処理
+4. **ダッシュボード**: 自分のチームのHPとメンバーの進捗可視化
+5. **縄のビジュアル**: HPに応じた縄の見た目変化（コンセプトの象徴）
 
-チーム結成フロー: 招待コード によるマッチング。
+---
 
-アクティビティ計測: ランニングのGPS蓄積と finish 処理。
+## 5. アーキテクチャ図のイメージ
 
-ダッシュボード: 自分のチームのHPとメンバーの進捗可視化。
-
-縄のビジュアル: HPに応じた縄の見た目変化（コンセプトの象徴）。
-
-5. アーキテクチャ図のイメージ
 ```mermaid
 graph TD
     subgraph Browser
