@@ -6,6 +6,8 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signInWithCustomToken,
+  signInWithPopup,
+  GoogleAuthProvider,
   signOut as firebaseSignOut,
   type User,
 } from "firebase/auth";
@@ -70,6 +72,14 @@ export function useAuth() {
     setState({ user: credential.user, idToken, loading: false });
   }, []);
 
+  const signInWithGoogle = useCallback(async () => {
+    const provider = new GoogleAuthProvider();
+    const credential = await signInWithPopup(firebaseAuth, provider);
+    const idToken = await credential.user.getIdToken();
+    setState({ user: credential.user, idToken, loading: false });
+    return credential.user;
+  }, []);
+
   const signOut = useCallback(async () => {
     await firebaseSignOut(firebaseAuth);
     setState({ user: null, idToken: null, loading: false });
@@ -86,6 +96,7 @@ export function useAuth() {
     ...state,
     signUpWithEmail,
     signInWithEmail,
+    signInWithGoogle,
     signInWithDebugToken,
     signOut,
     refreshToken,
