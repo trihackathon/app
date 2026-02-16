@@ -171,8 +171,9 @@ export function ApiTester() {
   // User form
   const [userName, setUserName] = useState("テストユーザー");
   const [userAge, setUserAge] = useState("25");
-  const [exerciseLevel, setExerciseLevel] = useState("beginner");
-  const [timezone, setTimezone] = useState("Asia/Tokyo");
+  const [userGender, setUserGender] = useState("male");
+  const [userWeight, setUserWeight] = useState("60");
+  const [userChronotype, setUserChronotype] = useState("both");
 
   // Team form
   const [teamName, setTeamName] = useState("テストチーム");
@@ -241,14 +242,19 @@ export function ApiTester() {
         <EndpointRow method="POST" path="/api/users/me" auth result={results["createMe"]}>
           <Input label="name" value={userName} onChange={setUserName} />
           <Input label="age" value={userAge} onChange={setUserAge} type="number" />
-          <Select label="exercise_level" value={exerciseLevel} onChange={setExerciseLevel} options={[
-            { value: "beginner", label: "beginner" },
-            { value: "intermediate", label: "intermediate" },
-            { value: "advanced", label: "advanced" },
+          <Select label="gender" value={userGender} onChange={setUserGender} options={[
+            { value: "male", label: "male" },
+            { value: "female", label: "female" },
+            { value: "other", label: "other" },
           ]} />
-          <Input label="timezone" value={timezone} onChange={setTimezone} />
+          <Input label="weight (kg)" value={userWeight} onChange={setUserWeight} type="number" />
+          <Select label="chronotype" value={userChronotype} onChange={setUserChronotype} options={[
+            { value: "morning", label: "morning" },
+            { value: "night", label: "night" },
+            { value: "both", label: "both" },
+          ]} />
           <SendButton
-            onClick={() => run("createMe", () => createMe({ name: userName, age: parseInt(userAge), exercise_level: exerciseLevel, timezone }))}
+            onClick={() => run("createMe", () => createMe({ name: userName, age: parseInt(userAge), gender: userGender, weight: parseInt(userWeight), chronotype: userChronotype }))}
             loading={!!loading["createMe"]}
             method="POST"
           />
@@ -257,13 +263,19 @@ export function ApiTester() {
         <EndpointRow method="PUT" path="/api/users/me" auth result={results["updateMe"]}>
           <Input label="name" value={userName} onChange={setUserName} />
           <Input label="age" value={userAge} onChange={setUserAge} type="number" />
-          <Select label="exercise_level" value={exerciseLevel} onChange={setExerciseLevel} options={[
-            { value: "beginner", label: "beginner" },
-            { value: "intermediate", label: "intermediate" },
-            { value: "advanced", label: "advanced" },
+          <Select label="gender" value={userGender} onChange={setUserGender} options={[
+            { value: "male", label: "male" },
+            { value: "female", label: "female" },
+            { value: "other", label: "other" },
+          ]} />
+          <Input label="weight (kg)" value={userWeight} onChange={setUserWeight} type="number" />
+          <Select label="chronotype" value={userChronotype} onChange={setUserChronotype} options={[
+            { value: "morning", label: "morning" },
+            { value: "night", label: "night" },
+            { value: "both", label: "both" },
           ]} />
           <SendButton
-            onClick={() => run("updateMe", () => updateMe({ name: userName, age: parseInt(userAge), exercise_level: exerciseLevel, timezone }))}
+            onClick={() => run("updateMe", () => updateMe({ name: userName, age: parseInt(userAge), gender: userGender, weight: parseInt(userWeight), chronotype: userChronotype }))}
             loading={!!loading["updateMe"]}
             method="PUT"
           />

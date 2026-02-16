@@ -37,20 +37,26 @@ async function request<T>(
   method: string,
   path: string,
   body?: unknown,
+  isFormData?: boolean,
 ): Promise<ApiResult<T>> {
   try {
     const headers = await getAuthHeaders();
-    
+
+    // FormDataの場合はContent-Typeを削除（ブラウザが自動設定）
+    if (isFormData) {
+      delete (headers as Record<string, string>)["Content-Type"];
+    }
+
     console.log(`[API] ${method} ${API_URL}${path}`);
     if (body) {
       console.log("[API] Request body:", body);
     }
     console.log("[API] Headers:", headers);
-    
+
     const res = await fetch(`${API_URL}${path}`, {
       method,
       headers,
-      body: body ? JSON.stringify(body) : undefined,
+      body: isFormData ? (body as FormData) : body ? JSON.stringify(body) : undefined,
     });
 
     console.log(`[API] Response status: ${res.status} ${res.statusText}`);
@@ -104,4 +110,12 @@ export function put<T>(path: string, body?: unknown): Promise<ApiResult<T>> {
 
 export function del<T>(path: string): Promise<ApiResult<T>> {
   return request<T>("DELETE", path);
+}
+
+export function postForm<T>(path: string, formData: FormData): Promise<ApiResult<T>> {
+  return request<T>("POST", path, formData, true);
+}
+
+export function putForm<T>(path: string, formData: FormData): Promise<ApiResult<T>> {
+  return request<T>("PUT", path, formData, true);
 }

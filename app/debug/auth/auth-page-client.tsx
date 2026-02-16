@@ -14,6 +14,9 @@ export function AuthPageClient() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
+  const [gender, setGender] = useState("male");
+  const [weight, setWeight] = useState("");
+  const [chronotype, setChronotype] = useState("both");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -51,6 +54,11 @@ export function AuthPageClient() {
         setError("年齢を正しく入力してください");
         return;
       }
+
+      if (!weight.trim() || isNaN(Number(weight)) || Number(weight) <= 0) {
+        setError("体重を正しく入力してください");
+        return;
+      }
     }
 
     if (password.length < 6) {
@@ -84,6 +92,9 @@ export function AuthPageClient() {
           const result = await createMe({
             name: name.trim(),
             age: Number(age),
+            gender,
+            weight: Number(weight),
+            chronotype,
           });
           
           if (result.ok) {
@@ -110,6 +121,9 @@ export function AuthPageClient() {
       setConfirmPassword("");
       setName("");
       setAge("");
+      setGender("male");
+      setWeight("");
+      setChronotype("both");
     } catch (err) {
       // Firebase エラーメッセージを日本語化
       const errorMessage = err instanceof Error ? err.message : "エラーが発生しました";
@@ -372,6 +386,55 @@ export function AuthPageClient() {
                     required
                     className="w-full rounded-lg border border-zinc-300 px-4 py-2.5 text-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:focus:border-blue-400"
                   />
+                </div>
+
+                {/* 性別 */}
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                    性別
+                  </label>
+                  <select
+                    value={gender}
+                    onChange={(e) => setGender(e.target.value)}
+                    className="w-full rounded-lg border border-zinc-300 px-4 py-2.5 text-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:focus:border-blue-400"
+                  >
+                    <option value="male">男性</option>
+                    <option value="female">女性</option>
+                    <option value="other">その他</option>
+                  </select>
+                </div>
+
+                {/* 体重 */}
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                    体重 (kg)
+                  </label>
+                  <input
+                    type="number"
+                    value={weight}
+                    onChange={(e) => setWeight(e.target.value)}
+                    placeholder="60"
+                    min="1"
+                    max="300"
+                    required
+                    className="w-full rounded-lg border border-zinc-300 px-4 py-2.5 text-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:focus:border-blue-400"
+                  />
+                </div>
+
+                {/* 朝型夜型 */}
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                    朝型・夜型
+                  </label>
+                  <select
+                    value={chronotype}
+                    onChange={(e) => setChronotype(e.target.value)}
+                    className="w-full rounded-lg border border-zinc-300 px-4 py-2.5 text-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:focus:border-blue-400"
+                  >
+                    <option value="morning">朝型</option>
+                    <option value="night">夜型</option>
+                    <option value="both">どちらでも</option>
+                  </select>
                 </div>
               </>
             )}

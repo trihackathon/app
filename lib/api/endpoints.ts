@@ -1,4 +1,4 @@
-import { get, post, put, del } from "@/lib/api/client";
+import { get, post, put, del, postForm, putForm } from "@/lib/api/client";
 import type {
   UserResponse,
   CreateUserRequest,
@@ -42,11 +42,27 @@ export function getMe() {
 }
 
 export function createMe(body: CreateUserRequest) {
-  return post<UserResponse>("/api/users/me", body);
+  const formData = new FormData();
+  formData.append("name", body.name);
+  formData.append("age", String(body.age));
+  formData.append("gender", body.gender);
+  formData.append("weight", String(body.weight));
+  formData.append("chronotype", body.chronotype);
+  if (body.avatar) {
+    formData.append("avatar", body.avatar);
+  }
+  return postForm<UserResponse>("/api/users/me", formData);
 }
 
 export function updateMe(body: UpdateUserRequest) {
-  return put<UserResponse>("/api/users/me", body);
+  const formData = new FormData();
+  if (body.name !== undefined) formData.append("name", body.name);
+  if (body.age !== undefined) formData.append("age", String(body.age));
+  if (body.gender !== undefined) formData.append("gender", body.gender);
+  if (body.weight !== undefined) formData.append("weight", String(body.weight));
+  if (body.chronotype !== undefined) formData.append("chronotype", body.chronotype);
+  if (body.avatar) formData.append("avatar", body.avatar);
+  return putForm<UserResponse>("/api/users/me", formData);
 }
 
 // Team

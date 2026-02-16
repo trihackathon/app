@@ -4,9 +4,10 @@ export type UserResponse = {
   id: string;
   name: string;
   age: number;
-  exercise_level: string;
-  timezone: string;
-  profile_image_url: string | null;
+  gender: string;
+  weight: number;
+  chronotype: string;
+  avatar_url: string;
   created_at: string;
   updated_at: string;
 };
@@ -216,16 +217,19 @@ export type PredictionResponse = {
 export type CreateUserRequest = {
   name: string;
   age: number;
-  exercise_level?: string;
-  timezone?: string;
+  gender: string;
+  weight: number;
+  chronotype: string;
+  avatar?: File;
 };
 
 export type UpdateUserRequest = {
-  name: string;
-  age: number;
-  exercise_level?: string;
-  timezone?: string;
-  profile_image_url?: string;
+  name?: string;
+  age?: number;
+  gender?: string;
+  weight?: number;
+  chronotype?: string;
+  avatar?: File;
 };
 
 export type CreateTeamRequest = {
