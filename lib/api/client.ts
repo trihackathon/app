@@ -101,3 +101,7 @@ export function post<T>(path: string, body?: unknown): Promise<ApiResult<T>> {
 export function put<T>(path: string, body?: unknown): Promise<ApiResult<T>> {
   return request<T>("PUT", path, body);
 }
+
+export function del<T>(path: string): Promise<ApiResult<T>> {
+  return request<T>("DELETE", path);
+}
