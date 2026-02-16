@@ -182,6 +182,23 @@ export function AuthPageClient() {
           </div>
 
           <div className="space-y-4">
+            {/* バックエンド連携のエラー・成功メッセージ */}
+            {error && (
+              <div className="rounded-lg bg-red-50 p-3 dark:bg-red-900/20">
+                <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+              </div>
+            )}
+            {success && (
+              <div className="rounded-lg bg-green-50 p-3 dark:bg-green-900/20">
+                <p className="text-sm text-green-600 dark:text-green-400">{success}</p>
+              </div>
+            )}
+            {loading && (
+              <div className="rounded-lg bg-blue-50 p-3 dark:bg-blue-900/20">
+                <p className="text-sm text-blue-600 dark:text-blue-400">バックエンドにユーザー情報を登録中...</p>
+              </div>
+            )}
+
             <div className="rounded-lg bg-zinc-50 p-4 dark:bg-zinc-800">
               <p className="mb-2 text-sm font-medium text-zinc-500 dark:text-zinc-400">
                 ユーザーID
