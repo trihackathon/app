@@ -20,6 +20,7 @@ export function AuthPageClient() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [tokenDebugInfo, setTokenDebugInfo] = useState<string | null>(null);
 
   // パスワード強度チェック
   const getPasswordStrength = (pass: string) => {
@@ -87,7 +88,28 @@ export function AuthPageClient() {
         console.log("Getting fresh token...");
         const freshToken = await user.getIdToken(true);
         console.log("Fresh token acquired:", freshToken.substring(0, 50) + "...");
-        
+
+        // JWTペイロードをデコードしてデバッグ表示
+        try {
+          const parts = freshToken.split(".");
+          if (parts.length === 3) {
+            const payload = JSON.parse(atob(parts[1]));
+            const debugInfo = {
+              aud: payload.aud,
+              iss: payload.iss,
+              sub: payload.sub,
+              iat: new Date(payload.iat * 1000).toISOString(),
+              exp: new Date(payload.exp * 1000).toISOString(),
+              auth_time: payload.auth_time ? new Date(payload.auth_time * 1000).toISOString() : undefined,
+              firebase_project: payload.aud,
+            };
+            console.log("[TOKEN DEBUG]", debugInfo);
+            setTokenDebugInfo(JSON.stringify(debugInfo, null, 2));
+          }
+        } catch (decodeErr) {
+          console.error("Token decode error:", decodeErr);
+        }
+
         try {
           const result = await createMe({
             name: name.trim(),
@@ -196,6 +218,12 @@ export function AuthPageClient() {
             {loading && (
               <div className="rounded-lg bg-blue-50 p-3 dark:bg-blue-900/20">
                 <p className="text-sm text-blue-600 dark:text-blue-400">バックエンドにユーザー情報を登録中...</p>
+              </div>
+            )}
+            {tokenDebugInfo && (
+              <div className="rounded-lg bg-zinc-50 p-3 dark:bg-zinc-800">
+                <p className="mb-1 text-xs font-medium text-zinc-500 dark:text-zinc-400">Token Debug (JWT payload)</p>
+                <pre className="text-xs text-zinc-600 dark:text-zinc-400 whitespace-pre-wrap break-all">{tokenDebugInfo}</pre>
               </div>
             )}
 
