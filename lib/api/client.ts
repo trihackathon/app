@@ -1,98 +1,141 @@
 import { firebaseAuth } from "@/lib/firebase/config";
 import type { ApiResult, ErrorResponse } from "@/types/api";
 
-// Use Next.js rewrites proxy to avoid CORS issues in dev
-const API_URL = "/proxy";
+// バックエンドAPIのURL
+// プロキシ経由だとAuthorizationヘッダーが転送されない場合があるため直接アクセス
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "/proxy";
 
-async function getAuthHeaders(): Promise<HeadersInit> {
-  // currentUserが設定されるまで少し待つ（最大3秒）
+async function getAuthToken(): Promise<string | null> {
   let user = firebaseAuth.currentUser;
   let attempts = 0;
-  
-  console.log("[AUTH] Initial currentUser:", user?.uid || "null");
-  
+
   while (!user && attempts < 6) {
     console.log(`[AUTH] Waiting for currentUser... attempt ${attempts + 1}/6`);
     await new Promise((resolve) => setTimeout(resolve, 500));
     user = firebaseAuth.currentUser;
     attempts++;
   }
-  
+
   if (!user) {
     console.error("[AUTH] No authenticated user found after waiting");
-    return { "Content-Type": "application/json" };
+    return null;
   }
 
-  console.log("[AUTH] User found:", user.uid);
-  const token = await user.getIdToken(true); // 強制的に新しいトークンを取得
+  const token = await user.getIdToken(true);
   console.log("[AUTH] Token acquired:", token.substring(0, 50) + "...");
-  
-  return {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
-  };
+  return token;
 }
 
 async function request<T>(
   method: string,
   path: string,
   body?: unknown,
-  isFormData?: boolean,
 ): Promise<ApiResult<T>> {
   try {
-    const headers = await getAuthHeaders();
-
-    // FormDataの場合はContent-Typeを削除（ブラウザが自動設定）
-    if (isFormData) {
-      delete (headers as Record<string, string>)["Content-Type"];
+    const token = await getAuthToken();
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
     }
 
     console.log(`[API] ${method} ${API_URL}${path}`);
-    if (body) {
-      console.log("[API] Request body:", body);
-    }
-    console.log("[API] Headers:", headers);
 
     const res = await fetch(`${API_URL}${path}`, {
       method,
       headers,
-      body: isFormData ? (body as FormData) : body ? JSON.stringify(body) : undefined,
+      body: body ? JSON.stringify(body) : undefined,
     });
 
     console.log(`[API] Response status: ${res.status} ${res.statusText}`);
-    
-    const contentType = res.headers.get("content-type");
-    console.log(`[API] Response content-type: ${contentType}`);
-    
-    // レスポンスのテキストを取得
+
     const responseText = await res.text();
     console.log(`[API] Response text:`, responseText);
-    
-    // JSONパース
+
     let data;
     try {
       data = responseText ? JSON.parse(responseText) : {};
-    } catch (parseError) {
-      console.error("[API] JSON parse error:", parseError);
-      return { 
-        ok: false, 
-        error: { 
-          error: `JSON parse error: ${responseText}` 
-        } 
+    } catch {
+      return {
+        ok: false,
+        error: { error: `${res.status}: JSON parse error`, message: responseText },
       };
     }
 
     if (!res.ok) {
-      console.error(`[API] Error response:`, data);
-      return { ok: false, error: data as ErrorResponse };
+      console.error(`[API] Error ${res.status}:`, data);
+      const err = data as ErrorResponse;
+      // ステータスコードをエラーに含める
+      if (!err.error) {
+        err.error = `HTTP ${res.status}`;
+      }
+      if (!err.message) {
+        err.message = res.statusText || "Unknown error";
+      }
+      return { ok: false, error: err };
     }
 
-    console.log(`[API] Success response:`, data);
     return { ok: true, data: data as T };
   } catch (e) {
     const message = e instanceof Error ? e.message : "Unknown error";
     console.error(`[API] Exception:`, e);
-    return { ok: false, error: { error: message } };
+    return { ok: false, error: { error: "network_error", message } };
+  }
+}
+
+// application/x-www-form-urlencoded で送信（Echo の c.FormValue() で読める）
+async function requestForm<T>(
+  method: string,
+  path: string,
+  params: URLSearchParams,
+): Promise<ApiResult<T>> {
+  try {
+    const token = await getAuthToken();
+    const headers: Record<string, string> = {
+      "Content-Type": "application/x-www-form-urlencoded",
+    };
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    console.log(`[API] ${method} ${API_URL}${path} (form-urlencoded)`);
+    console.log("[API] Params:", params.toString());
+
+    const res = await fetch(`${API_URL}${path}`, {
+      method,
+      headers,
+      body: params.toString(),
+    });
+
+    console.log(`[API] Response status: ${res.status} ${res.statusText}`);
+
+    const responseText = await res.text();
+    console.log(`[API] Response text:`, responseText);
+
+    let data;
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+    } catch {
+      return {
+        ok: false,
+        error: { error: `${res.status}: JSON parse error`, message: responseText },
+      };
+    }
+
+    if (!res.ok) {
+      console.error(`[API] Error ${res.status}:`, data);
+      const err = data as ErrorResponse;
+      if (!err.error) err.error = `HTTP ${res.status}`;
+      if (!err.message) err.message = res.statusText || "Unknown error";
+      return { ok: false, error: err };
+    }
+
+    return { ok: true, data: data as T };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Unknown error";
+    console.error(`[API] Exception:`, e);
+    return { ok: false, error: { error: "network_error", message } };
   }
 }
 
@@ -112,10 +155,10 @@ export function del<T>(path: string): Promise<ApiResult<T>> {
   return request<T>("DELETE", path);
 }
 
-export function postForm<T>(path: string, formData: FormData): Promise<ApiResult<T>> {
-  return request<T>("POST", path, formData, true);
+export function postForm<T>(path: string, params: URLSearchParams): Promise<ApiResult<T>> {
+  return requestForm<T>("POST", path, params);
 }
 
-export function putForm<T>(path: string, formData: FormData): Promise<ApiResult<T>> {
-  return request<T>("PUT", path, formData, true);
+export function putForm<T>(path: string, params: URLSearchParams): Promise<ApiResult<T>> {
+  return requestForm<T>("PUT", path, params);
 }

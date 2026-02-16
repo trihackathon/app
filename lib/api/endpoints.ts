@@ -42,27 +42,23 @@ export function getMe() {
 }
 
 export function createMe(body: CreateUserRequest) {
-  const formData = new FormData();
-  formData.append("name", body.name);
-  formData.append("age", String(body.age));
-  formData.append("gender", body.gender);
-  formData.append("weight", String(body.weight));
-  formData.append("chronotype", body.chronotype);
-  if (body.avatar) {
-    formData.append("avatar", body.avatar);
-  }
-  return postForm<UserResponse>("/api/users/me", formData);
+  const params = new URLSearchParams();
+  params.append("name", body.name);
+  params.append("age", String(body.age));
+  params.append("gender", body.gender);
+  params.append("weight", String(body.weight));
+  params.append("chronotype", body.chronotype);
+  return postForm<UserResponse>("/api/users/me", params);
 }
 
 export function updateMe(body: UpdateUserRequest) {
-  const formData = new FormData();
-  if (body.name !== undefined) formData.append("name", body.name);
-  if (body.age !== undefined) formData.append("age", String(body.age));
-  if (body.gender !== undefined) formData.append("gender", body.gender);
-  if (body.weight !== undefined) formData.append("weight", String(body.weight));
-  if (body.chronotype !== undefined) formData.append("chronotype", body.chronotype);
-  if (body.avatar) formData.append("avatar", body.avatar);
-  return putForm<UserResponse>("/api/users/me", formData);
+  const params = new URLSearchParams();
+  if (body.name !== undefined) params.append("name", body.name);
+  if (body.age !== undefined) params.append("age", String(body.age));
+  if (body.gender !== undefined) params.append("gender", body.gender);
+  if (body.weight !== undefined) params.append("weight", String(body.weight));
+  if (body.chronotype !== undefined) params.append("chronotype", body.chronotype);
+  return putForm<UserResponse>("/api/users/me", params);
 }
 
 // Team
