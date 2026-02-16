@@ -17,6 +17,8 @@ export function AuthPageClient() {
   const [gender, setGender] = useState("male");
   const [weight, setWeight] = useState("");
   const [chronotype, setChronotype] = useState("both");
+  const [avatar, setAvatar] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -33,6 +35,39 @@ export function AuthPageClient() {
   };
 
   const passwordStrength = getPasswordStrength(password);
+
+  // 画像選択ハンドラー
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // ファイルサイズチェック（5MB以下）
+      if (file.size > 5 * 1024 * 1024) {
+        setError("画像サイズは5MB以下にしてください");
+        return;
+      }
+      
+      // 画像形式チェック
+      if (!file.type.startsWith("image/")) {
+        setError("画像ファイルを選択してください");
+        return;
+      }
+      
+      setAvatar(file);
+      
+      // プレビュー表示
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAvatarPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // 画像削除ハンドラー
+  const handleAvatarRemove = () => {
+    setAvatar(null);
+    setAvatarPreview(null);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -117,6 +152,7 @@ export function AuthPageClient() {
             gender,
             weight: Number(weight),
             chronotype,
+            avatar: avatar || undefined,
           });
           
           if (result.ok) {
@@ -146,6 +182,8 @@ export function AuthPageClient() {
       setGender("male");
       setWeight("");
       setChronotype("both");
+      setAvatar(null);
+      setAvatarPreview(null);
     } catch (err) {
       // Firebase エラーメッセージを日本語化
       const errorMessage = err instanceof Error ? err.message : "エラーが発生しました";
@@ -399,6 +437,63 @@ export function AuthPageClient() {
                     required
                     className="w-full rounded-lg border border-zinc-300 px-4 py-2.5 text-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:focus:border-blue-400"
                   />
+                </div>
+
+                {/* プロフィール写真 */}
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                    プロフィール写真（任意）
+                  </label>
+                  
+                  {avatarPreview ? (
+                    <div className="flex items-center gap-4">
+                      <div className="relative h-20 w-20 overflow-hidden rounded-full border-2 border-zinc-300 dark:border-zinc-600">
+                        <img
+                          src={avatarPreview}
+                          alt="プレビュー"
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleAvatarRemove}
+                        className="rounded-lg border border-red-300 px-3 py-2 text-sm text-red-600 transition-colors hover:bg-red-50 dark:border-red-600 dark:text-red-400 dark:hover:bg-red-900/20"
+                      >
+                        削除
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-4">
+                      <div className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-dashed border-zinc-300 bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800">
+                        <svg
+                          className="h-8 w-8 text-zinc-400"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                          />
+                        </svg>
+                      </div>
+                      <label className="cursor-pointer rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800">
+                        写真を選択
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleAvatarChange}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  )}
+                  
+                  <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+                    JPG、PNG、GIF（最大5MB）
+                  </p>
                 </div>
 
                 {/* 名前 */}

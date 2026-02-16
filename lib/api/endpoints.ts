@@ -1,4 +1,4 @@
-import { get, post, put, del, postForm, putForm } from "@/lib/api/client";
+import { get, post, put, del, postForm, putForm, postMultipart, putMultipart } from "@/lib/api/client";
 import type {
   UserResponse,
   CreateUserRequest,
@@ -42,6 +42,19 @@ export function getMe() {
 }
 
 export function createMe(body: CreateUserRequest) {
+  // ファイルがある場合はFormDataを使用
+  if (body.avatar) {
+    const formData = new FormData();
+    formData.append("name", body.name);
+    formData.append("age", String(body.age));
+    formData.append("gender", body.gender);
+    formData.append("weight", String(body.weight));
+    formData.append("chronotype", body.chronotype);
+    formData.append("avatar", body.avatar);
+    return postMultipart<UserResponse>("/api/users/me", formData);
+  }
+  
+  // ファイルがない場合は従来通りURLSearchParams
   const params = new URLSearchParams();
   params.append("name", body.name);
   params.append("age", String(body.age));
@@ -52,6 +65,19 @@ export function createMe(body: CreateUserRequest) {
 }
 
 export function updateMe(body: UpdateUserRequest) {
+  // ファイルがある場合はFormDataを使用
+  if (body.avatar) {
+    const formData = new FormData();
+    if (body.name !== undefined) formData.append("name", body.name);
+    if (body.age !== undefined) formData.append("age", String(body.age));
+    if (body.gender !== undefined) formData.append("gender", body.gender);
+    if (body.weight !== undefined) formData.append("weight", String(body.weight));
+    if (body.chronotype !== undefined) formData.append("chronotype", body.chronotype);
+    formData.append("avatar", body.avatar);
+    return putMultipart<UserResponse>("/api/users/me", formData);
+  }
+  
+  // ファイルがない場合は従来通りURLSearchParams
   const params = new URLSearchParams();
   if (body.name !== undefined) params.append("name", body.name);
   if (body.age !== undefined) params.append("age", String(body.age));

@@ -139,6 +139,59 @@ async function requestForm<T>(
   }
 }
 
+// multipart/form-data で送信（ファイルアップロード対応）
+async function requestMultipart<T>(
+  method: string,
+  path: string,
+  formData: FormData,
+): Promise<ApiResult<T>> {
+  try {
+    const token = await getAuthToken();
+    const headers: Record<string, string> = {};
+    // FormDataの場合、Content-Typeは自動設定されるため指定しない
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    console.log(`[API] ${method} ${API_URL}${path} (multipart/form-data)`);
+
+    const res = await fetch(`${API_URL}${path}`, {
+      method,
+      headers,
+      body: formData,
+    });
+
+    console.log(`[API] Response status: ${res.status} ${res.statusText}`);
+
+    const responseText = await res.text();
+    console.log(`[API] Response text:`, responseText);
+
+    let data;
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+    } catch {
+      return {
+        ok: false,
+        error: { error: `${res.status}: JSON parse error`, message: responseText },
+      };
+    }
+
+    if (!res.ok) {
+      console.error(`[API] Error ${res.status}:`, data);
+      const err = data as ErrorResponse;
+      if (!err.error) err.error = `HTTP ${res.status}`;
+      if (!err.message) err.message = res.statusText || "Unknown error";
+      return { ok: false, error: err };
+    }
+
+    return { ok: true, data: data as T };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Unknown error";
+    console.error(`[API] Exception:`, e);
+    return { ok: false, error: { error: "network_error", message } };
+  }
+}
+
 export function get<T>(path: string): Promise<ApiResult<T>> {
   return request<T>("GET", path);
 }
@@ -161,4 +214,12 @@ export function postForm<T>(path: string, params: URLSearchParams): Promise<ApiR
 
 export function putForm<T>(path: string, params: URLSearchParams): Promise<ApiResult<T>> {
   return requestForm<T>("PUT", path, params);
+}
+
+export function postMultipart<T>(path: string, formData: FormData): Promise<ApiResult<T>> {
+  return requestMultipart<T>("POST", path, formData);
+}
+
+export function putMultipart<T>(path: string, formData: FormData): Promise<ApiResult<T>> {
+  return requestMultipart<T>("PUT", path, formData);
 }
