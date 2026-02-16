@@ -45,6 +45,7 @@ export function useAuth() {
       );
       const idToken = await credential.user.getIdToken();
       setState({ user: credential.user, idToken, loading: false });
+      return credential.user;
     },
     [],
   );
@@ -58,6 +59,7 @@ export function useAuth() {
       );
       const idToken = await credential.user.getIdToken();
       setState({ user: credential.user, idToken, loading: false });
+      return credential.user;
     },
     [],
   );
