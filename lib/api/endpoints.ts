@@ -26,6 +26,8 @@ import type {
   CurrentWeekEvaluationResponse,
   PredictionResponse,
   DisbandVoteResponse,
+  ActivityReviewResponse,
+  PostActivityReviewRequest,
 } from "@/types/api";
 
 // Debug
@@ -212,6 +214,15 @@ export function getMyActivities() {
 
 export function getTeamActivities(teamId: string) {
   return get<ActivityResponse[]>(`/api/teams/${teamId}/activities`);
+}
+
+// Activity Review
+export function postActivityReview(activityId: string, body: PostActivityReviewRequest) {
+  return post<ActivityReviewResponse>(`/api/activities/${activityId}/review`, body);
+}
+
+export function getActivityReviews(activityId: string) {
+  return get<ActivityReviewResponse[]>(`/api/activities/${activityId}/reviews`);
 }
 
 // Team Status

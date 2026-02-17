@@ -87,9 +87,11 @@ export type GPSPointResponse = {
 export type ActivityResponse = {
   id: string;
   user_id: string;
+  user_name?: string;
   team_id: string;
   exercise_type: string;
   status: string;
+  review_status?: string;
   started_at: string;
   ended_at: string | null;
   distance_km?: number;
@@ -100,6 +102,21 @@ export type ActivityResponse = {
   gps_points?: GPSPointResponse[];
   created_at: string;
   updated_at: string;
+};
+
+export type ActivityReviewResponse = {
+  id: string;
+  activity_id: string;
+  reviewer_id: string;
+  reviewer_name: string;
+  status: string;
+  comment: string;
+  created_at: string;
+};
+
+export type PostActivityReviewRequest = {
+  status: string;
+  comment?: string;
 };
 
 export type SendGPSPointsResponse = {
