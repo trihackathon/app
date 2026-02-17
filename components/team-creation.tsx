@@ -76,7 +76,12 @@ export function TeamCreation({ onComplete, onBack }: TeamCreationProps) {
         ? { target_distance_km: weeklyGoal }
         : { target_visits_per_week: gymDays, target_min_duration_min: gymMinutes }
 
-      await createGoal(newTeamId, goalBody)
+      const goalResult = await createGoal(newTeamId, goalBody)
+      if (!goalResult.ok) {
+        setError("目標の設定に失敗しました")
+        setLoading(false)
+        return
+      }
 
       // 3. Create invite
       const inviteResult = await createInvite(newTeamId)
