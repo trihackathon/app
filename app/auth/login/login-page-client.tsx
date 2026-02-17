@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { GRADIENTS, FOCUS_STYLES, LINK_STYLES } from "@/lib/constants/colors";
+import { getMyTeam } from "@/lib/api/endpoints";
 
 export function LoginPageClient() {
   const auth = useAuth();
@@ -14,10 +15,20 @@ export function LoginPageClient() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // チーム所属に応じて遷移先を振り分け
+  const navigateAfterAuth = async () => {
+    const teamResult = await getMyTeam();
+    if (teamResult.ok) {
+      router.push("/dashboard");
+    } else {
+      router.push("/create-team");
+    }
+  };
+
   // ログイン済みの場合はリダイレクト
   useEffect(() => {
     if (!auth.loading && auth.user) {
-      router.push("/dashboard");
+      navigateAfterAuth();
     }
   }, [auth.loading, auth.user, router]);
 
@@ -28,7 +39,7 @@ export function LoginPageClient() {
 
     try {
       await auth.signInWithEmail(email, password);
-      router.push("/dashboard");
+      await navigateAfterAuth();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "エラーが発生しました";
       if (errorMessage.includes("user-not-found")) {
@@ -53,7 +64,7 @@ export function LoginPageClient() {
 
     try {
       await auth.signInWithGoogle();
-      router.push("/dashboard");
+      await navigateAfterAuth();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "エラーが発生しました";
       if (errorMessage.includes("popup-closed-by-user")) {
