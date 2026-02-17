@@ -96,6 +96,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     let cancelled = false
 
     async function loadData() {
+      let redirecting = false
       setIsLoading(true)
       setError(null)
 
@@ -115,6 +116,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         if (cancelled) return
         if (!teamResult.ok) {
           // Team not found → redirect to create-team
+          redirecting = true
           router.push("/create-team")
           return
         }
@@ -140,7 +142,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
           setError(err instanceof Error ? err.message : "データの取得に失敗しました")
         }
       } finally {
-        if (!cancelled) {
+        if (!cancelled && !redirecting) {
           setIsLoading(false)
         }
       }
