@@ -40,7 +40,6 @@ export function TrackingScreen() {
 
   // Get goal targets from team
   const goalDistanceKm = team?.goal?.target_distance_km ?? 5
-  const goalDurationMin = team?.goal?.target_min_duration_min ?? 30
   const goalVisitsPerWeek = team?.goal?.target_visits_per_week ?? 3
 
   // 表示用の累積値（ランニング中は今週の累積 + 今回の距離）

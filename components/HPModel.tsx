@@ -7,7 +7,7 @@ import * as THREE from 'three';
 // 1. 恒星（太陽）
 function Sun({ hp }: { hp: number }) {
   const sunRef = useRef<THREE.Mesh>(null);
-  useFrame((state) => {
+  useFrame(() => {
     if (sunRef.current) {
       // 0%ならほぼ停止、それ以外はHPに応じた速度で自転
       const rotSpeed = hp === 0 ? 0.001 : 0.005 * (hp / 100 + 0.2);

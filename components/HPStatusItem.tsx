@@ -1,6 +1,5 @@
 // components/HPStatusItem.tsx
 import React from 'react';
-import Image from 'next/image';
 
 type Props = {
   stage: string;       // 状態名（例：「健全」「警告」など）
