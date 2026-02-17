@@ -200,6 +200,17 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     }
   }, [router])
 
+  // Poll team data every 15 seconds for real-time updates
+  useEffect(() => {
+    if (!team?.id) return
+    const interval = setInterval(() => {
+      refreshActivities()
+      refreshStatus()
+      refreshEvaluation()
+    }, 15000)
+    return () => clearInterval(interval)
+  }, [team?.id, refreshActivities, refreshStatus, refreshEvaluation])
+
   return (
     <DashboardContext.Provider
       value={{

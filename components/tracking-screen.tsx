@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { Play, Square, MapPin, Timer, Footprints, Dumbbell } from "lucide-react"
+import { Play, Square, MapPin, Timer, Footprints, Dumbbell, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useDashboard } from "@/components/dashboard-context"
@@ -30,6 +30,7 @@ export function TrackingScreen() {
   const [distance, setDistance] = useState(0)
   const [activityId, setActivityId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [isStarting, setIsStarting] = useState(false)
   const [gymLocations, setGymLocations] = useState<GymLocationResponse[]>([])
   const [selectedGym, setSelectedGym] = useState<string | null>(null)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -100,6 +101,8 @@ export function TrackingScreen() {
   const pace = elapsed > 0 && distance > 0 ? elapsed / 60 / distance : 0
 
   const handleStartRunning = async () => {
+    if (isStarting) return
+    setIsStarting(true)
     setError(null)
     try {
       const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
@@ -138,6 +141,8 @@ export function TrackingScreen() {
       )
     } catch {
       setError("位置情報の取得に失敗しました。GPS設定を確認してください。")
+    } finally {
+      setIsStarting(false)
     }
   }
 
@@ -181,6 +186,8 @@ export function TrackingScreen() {
   }
 
   const handleStartGym = async () => {
+    if (isStarting) return
+    setIsStarting(true)
     setError(null)
 
     if (!selectedGym && gymLocations.length > 0) {
@@ -214,6 +221,8 @@ export function TrackingScreen() {
       setIsTracking(true)
     } catch {
       setError("位置情報の取得に失敗しました")
+    } finally {
+      setIsStarting(false)
     }
   }
 
@@ -443,6 +452,7 @@ export function TrackingScreen() {
       <Button
         size="lg"
         onClick={handleStartStop}
+        disabled={isStarting}
         className={cn(
           "w-full py-6 text-lg font-black",
           isTracking
@@ -450,7 +460,12 @@ export function TrackingScreen() {
             : "bg-primary text-primary-foreground hover:bg-primary/90"
         )}
       >
-        {isTracking ? (
+        {isStarting ? (
+          <>
+            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+            開始中...
+          </>
+        ) : isTracking ? (
           <>
             <Square className="mr-2 h-5 w-5" />
             {mode === "running" ? "ランニング終了" : "退出する"}
