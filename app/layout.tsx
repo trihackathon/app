@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from "next"
 import { Noto_Sans_JP } from "next/font/google"
 
 import "./globals.css"
+import { ThemeProvider } from "@/components/theme-provider"
 
 const notoSansJP = Noto_Sans_JP({
   subsets: ["latin"],
@@ -26,8 +27,17 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="ja" className={notoSansJP.variable}>
-      <body className="font-sans antialiased">{children}</body>
+    <html lang="ja" className={notoSansJP.variable} suppressHydrationWarning>
+      <body className="font-sans antialiased">
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem
+          disableTransitionOnChange
+        >
+          {children}
+        </ThemeProvider>
+      </body>
     </html>
   )
 }

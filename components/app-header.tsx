@@ -36,7 +36,7 @@ export function AppHeader({ teamName, onSos, userAvatarUrl, userName }: AppHeade
             <HandHelping className="h-3.5 w-3.5" />
             SOS
           </button>
-<button
+          <button
             onClick={() => router.push("/dashboard/settings")}
             className="transition-opacity hover:opacity-80"
             aria-label="設定"
