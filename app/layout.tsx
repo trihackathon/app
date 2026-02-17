@@ -16,6 +16,13 @@ export const metadata: Metadata = {
   description:
     "3人1組でランニング・ジム通いを監視し合う、連帯責任型の運動習慣化プラットフォーム。仲間を裏切れない緊張感で、運動を続ける。",
   manifest: "/manifest.json",
+  icons: {
+    icon: [
+      { url: "/icon-192x192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512x512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: "/apple-touch-icon.png",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
