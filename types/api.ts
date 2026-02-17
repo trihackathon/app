@@ -31,6 +31,7 @@ export type TeamMemberResponse = {
   name: string;
   role: string;
   joined_at: string;
+  avatar_url?: string;
 };
 
 export type GoalResponse = {
@@ -140,6 +141,7 @@ export type MemberProgress = {
   current_week_visits: number | null;
   current_week_duration_min: number | null;
   target_progress_percent: number;
+  avatar_url?: string;
 };
 
 export type TeamStatusResponse = {
@@ -184,6 +186,7 @@ export type CurrentWeekMemberProgress = {
   target_progress_percent: number;
   on_track: boolean;
   activities_this_week: WeekActivitySummary[];
+  avatar_url?: string;
 };
 
 export type CurrentWeekEvaluationResponse = {
@@ -210,6 +213,15 @@ export type PredictionResponse = {
   daily_stats: DailyStat[];
   danger_days: string[];
   recommendation: string;
+};
+
+// Disband Vote
+export type DisbandVoteResponse = {
+  team_id: string;
+  total_count: number;
+  voted_count: number;
+  voted_users: string[];
+  disbanded: boolean;
 };
 
 // API Request types

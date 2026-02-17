@@ -19,7 +19,13 @@ export function LoginPageClient() {
   const navigateAfterAuth = async () => {
     const teamResult = await getMyTeam();
     if (teamResult.ok) {
-      router.push("/dashboard");
+      const team = teamResult.data;
+      // チームが forming 状態で3人未満の場合は、チーム作成画面に戻す
+      if (team.status === "forming" && team.members.length < 3) {
+        router.push("/create-team");
+      } else {
+        router.push("/dashboard");
+      }
     } else {
       router.push("/create-team");
     }

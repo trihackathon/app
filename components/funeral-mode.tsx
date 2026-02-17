@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { ArrowRight, Heart } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { RopeVisual } from "@/components/rope-visual"
+import { Spinner } from "@/components/ui/spinner"
 import { getMyTeam, getTeamStatus, getTeamActivities } from "@/lib/api/endpoints"
 import type { TeamResponse, TeamStatusResponse, ActivityResponse } from "@/types/api"
 
@@ -59,7 +60,7 @@ export function FuneralMode({ onRetry, onBackToLanding }: FuneralModeProps) {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="text-muted-foreground">読み込み中...</div>
+        <Spinner size="lg" />
       </div>
     )
   }

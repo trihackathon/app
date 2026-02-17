@@ -1,15 +1,18 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { HandHelping, Skull } from "lucide-react"
+import { HandHelping } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { MemberAvatar } from "@/components/member-avatar"
 
 interface AppHeaderProps {
   teamName: string
   onSos: () => void
+  userAvatarUrl?: string
+  userName?: string
 }
 
-export function AppHeader({ teamName, onSos }: AppHeaderProps) {
+export function AppHeader({ teamName, onSos, userAvatarUrl, userName }: AppHeaderProps) {
   const router = useRouter()
 
   return (
@@ -33,15 +36,16 @@ export function AppHeader({ teamName, onSos }: AppHeaderProps) {
             <HandHelping className="h-3.5 w-3.5" />
             SOS
           </button>
-          <button
-            onClick={() => router.push("/funeral")}
-            className={cn(
-              "flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5",
-              "text-xs font-bold text-muted-foreground hover:text-destructive hover:border-destructive/20 transition-colors"
-            )}
-            aria-label="葬式モードを確認"
+<button
+            onClick={() => router.push("/dashboard/settings")}
+            className="transition-opacity hover:opacity-80"
+            aria-label="設定"
           >
-            <Skull className="h-3.5 w-3.5" />
+            <MemberAvatar
+              src={userAvatarUrl}
+              name={userName || "?"}
+              size="sm"
+            />
           </button>
         </div>
       </div>

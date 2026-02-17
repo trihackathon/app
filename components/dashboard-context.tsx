@@ -25,6 +25,7 @@ interface DashboardContextType {
   unreadCount: number
   isLoading: boolean
   error: string | null
+  refreshUser: () => Promise<void>
   refreshTeam: () => Promise<void>
   refreshActivities: () => Promise<void>
   refreshStatus: () => Promise<void>
@@ -68,6 +69,13 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(interval)
   }, [currentEvaluation?.week_end])
 
+  const refreshUser = useCallback(async () => {
+    const result = await getMe()
+    if (result.ok) {
+      setUser(result.data)
+    }
+  }, [])
+
   const refreshTeam = useCallback(async () => {
     const result = await getMyTeam()
     if (result.ok) {
@@ -105,6 +113,13 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         const userResult = await getMe()
         if (cancelled) return
         if (!userResult.ok) {
+          // 422エラーの場合、バックエンドにユーザーが作成されていない
+          if (userResult.error.error?.includes('422')) {
+            console.log('[Dashboard] User not found in backend (422), redirecting to signup')
+            redirecting = true
+            router.push("/auth/signup")
+            return
+          }
           setError("ユーザー情報の取得に失敗しました")
           setIsLoading(false)
           return
@@ -115,7 +130,8 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         const teamResult = await getMyTeam()
         if (cancelled) return
         if (!teamResult.ok) {
-          // Team not found → redirect to create-team
+          // Team not found (404 or 422) → redirect to create-team
+          console.log('[Dashboard] No team found, redirecting to create-team')
           redirecting = true
           router.push("/create-team")
           return
@@ -133,10 +149,30 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
 
         if (cancelled) return
 
-        if (statusResult.ok) setTeamStatus(statusResult.data)
-        if (activitiesResult.ok) setActivities(activitiesResult.data)
-        if (evalResult.ok) setCurrentEvaluation(evalResult.data)
-        if (predictionResult.ok) setPrediction(predictionResult.data)
+        // エラー詳細をログ出力
+        if (!statusResult.ok) {
+          console.warn('[Dashboard] Team status fetch failed:', statusResult.error)
+        } else {
+          setTeamStatus(statusResult.data)
+        }
+
+        if (!activitiesResult.ok) {
+          console.warn('[Dashboard] Activities fetch failed:', activitiesResult.error)
+        } else {
+          setActivities(activitiesResult.data)
+        }
+
+        if (!evalResult.ok) {
+          console.warn('[Dashboard] Current evaluation fetch failed:', evalResult.error)
+        } else {
+          setCurrentEvaluation(evalResult.data)
+        }
+
+        if (!predictionResult.ok) {
+          console.warn('[Dashboard] Prediction fetch failed:', predictionResult.error)
+        } else {
+          setPrediction(predictionResult.data)
+        }
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : "データの取得に失敗しました")
@@ -170,6 +206,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         unreadCount,
         isLoading,
         error,
+        refreshUser,
         refreshTeam,
         refreshActivities,
         refreshStatus,
