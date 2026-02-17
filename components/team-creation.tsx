@@ -35,7 +35,13 @@ export function TeamCreation({ onComplete, onBack }: TeamCreationProps) {
   const [cleanupLoading, setCleanupLoading] = useState(false)
   const [showCleanupButton, setShowCleanupButton] = useState(false)
   const [showDebugInfo, setShowDebugInfo] = useState(false)
-  const [debugInfo, setDebugInfo] = useState<any>(null)
+  const [debugInfo, setDebugInfo] = useState<{
+    user_id: string
+    total_memberships: number
+    active_memberships: number
+    can_create_new_team: boolean
+    all_memberships: { team_name: string; team_status: string; role: string; joined_at: string }[]
+  } | null>(null)
   const [resumingTeam, setResumingTeam] = useState(false)
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -82,7 +88,7 @@ export function TeamCreation({ onComplete, onBack }: TeamCreationProps) {
     }
 
     checkExistingTeam()
-  }, [])
+  }, [onComplete])
 
   // Cleanup polling on unmount
   useEffect(() => {
@@ -325,7 +331,7 @@ export function TeamCreation({ onComplete, onBack }: TeamCreationProps) {
               {debugInfo.all_memberships.length > 0 && (
                 <div className="mt-2">
                   <p className="font-bold text-foreground">所属チーム一覧:</p>
-                  {debugInfo.all_memberships.map((m: any, i: number) => (
+                  {debugInfo.all_memberships.map((m, i) => (
                     <div key={i} className="mt-1 rounded bg-secondary p-2">
                       <p>チーム: {m.team_name} ({m.team_status})</p>
                       <p>役割: {m.role}</p>

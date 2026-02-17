@@ -1,5 +1,4 @@
 import React from 'react';
-import { LucideIcon } from 'lucide-react'; // アイコン用の型をインポート
 // 1. 型定義: どんな情報を受け取るか決める
 type Props = {
   number: number;
