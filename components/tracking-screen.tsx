@@ -18,7 +18,12 @@ import type { GymLocationResponse } from "@/types/api"
 type Mode = "running" | "gym"
 
 export function TrackingScreen() {
-  const { team, refreshActivities, refreshStatus } = useDashboard()
+  const { user, team, currentEvaluation, refreshActivities, refreshStatus, refreshEvaluation } = useDashboard()
+
+  // 今週の累積データ（自分の進捗）
+  const myWeeklyProgress = currentEvaluation?.members?.find((m) => m.user_id === user?.id)
+  const weeklyDistanceKm = myWeeklyProgress?.total_distance_km ?? 0
+  const weeklyVisits = myWeeklyProgress?.total_visits ?? 0
   const [mode, setMode] = useState<Mode>("running")
   const [isTracking, setIsTracking] = useState(false)
   const [elapsed, setElapsed] = useState(0)
@@ -35,6 +40,12 @@ export function TrackingScreen() {
   // Get goal targets from team
   const goalDistanceKm = team?.goal?.target_distance_km ?? 5
   const goalDurationMin = team?.goal?.target_min_duration_min ?? 30
+  const goalVisitsPerWeek = team?.goal?.target_visits_per_week ?? 3
+
+  // 表示用の累積値（ランニング中は今週の累積 + 今回の距離）
+  const displayDistanceKm = mode === "running" ? weeklyDistanceKm + distance : weeklyDistanceKm
+  const safeGoalKm = goalDistanceKm > 0 ? goalDistanceKm : 1
+  const safeGoalVisits = goalVisitsPerWeek > 0 ? goalVisitsPerWeek : 1
 
   // Load gym locations
   useEffect(() => {
@@ -166,6 +177,7 @@ export function TrackingScreen() {
     setActivityId(null)
     refreshActivities()
     refreshStatus()
+    refreshEvaluation()
   }
 
   const handleStartGym = async () => {
@@ -230,6 +242,7 @@ export function TrackingScreen() {
     setActivityId(null)
     refreshActivities()
     refreshStatus()
+    refreshEvaluation()
   }
 
   const handleStartStop = () => {
@@ -396,12 +409,14 @@ export function TrackingScreen() {
         )}
       </div>
 
-      {/* Goal Progress */}
+      {/* Goal Progress - 今週の累積を表示 */}
       <div className="mb-6 rounded-xl border border-border bg-card p-4">
         <div className="mb-2 flex items-center justify-between text-sm">
           <span className="text-muted-foreground">今週の目標</span>
           <span className="font-bold text-foreground">
-            {mode === "running" ? `${goalDistanceKm} km` : `${goalDurationMin} 分`}
+            {mode === "running"
+              ? `${displayDistanceKm.toFixed(1)} / ${goalDistanceKm} km`
+              : `${weeklyVisits} / ${goalVisitsPerWeek} 回`}
           </span>
         </div>
         <div className="h-2 overflow-hidden rounded-full bg-secondary">
@@ -409,18 +424,18 @@ export function TrackingScreen() {
             className={cn(
               "h-full rounded-full transition-all duration-500",
               mode === "running"
-                ? distance >= goalDistanceKm ? "bg-accent" : "bg-primary"
-                : elapsed / 60 >= goalDurationMin ? "bg-accent" : "bg-primary"
+                ? displayDistanceKm >= goalDistanceKm ? "bg-accent" : "bg-primary"
+                : weeklyVisits >= goalVisitsPerWeek ? "bg-accent" : "bg-primary"
             )}
             style={{
-              width: `${Math.min(100, mode === "running" ? (distance / goalDistanceKm) * 100 : (elapsed / 60 / goalDurationMin) * 100)}%`,
+              width: `${Math.min(100, mode === "running" ? (displayDistanceKm / safeGoalKm) * 100 : (weeklyVisits / safeGoalVisits) * 100)}%`,
             }}
           />
         </div>
         <div className="mt-1 text-right text-xs text-muted-foreground">
           {mode === "running"
-            ? `${Math.min(100, Math.round((distance / goalDistanceKm) * 100))}%`
-            : `${Math.min(100, Math.round((elapsed / 60 / goalDurationMin) * 100))}%`}
+            ? `${Math.min(100, Math.round((displayDistanceKm / safeGoalKm) * 100))}%`
+            : `${Math.min(100, Math.round((weeklyVisits / safeGoalVisits) * 100))}%`}
         </div>
       </div>
 

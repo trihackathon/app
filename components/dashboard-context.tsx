@@ -29,6 +29,7 @@ interface DashboardContextType {
   refreshTeam: () => Promise<void>
   refreshActivities: () => Promise<void>
   refreshStatus: () => Promise<void>
+  refreshEvaluation: () => Promise<void>
 }
 
 const DashboardContext = createContext<DashboardContextType | null>(null)
@@ -96,6 +97,14 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     const result = await getTeamStatus(team.id)
     if (result.ok) {
       setTeamStatus(result.data)
+    }
+  }, [team?.id])
+
+  const refreshEvaluation = useCallback(async () => {
+    if (!team?.id) return
+    const result = await getCurrentEvaluation(team.id)
+    if (result.ok) {
+      setCurrentEvaluation(result.data)
     }
   }, [team?.id])
 
@@ -210,6 +219,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         refreshTeam,
         refreshActivities,
         refreshStatus,
+        refreshEvaluation,
       }}
     >
       {children}
