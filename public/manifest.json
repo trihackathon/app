@@ -1,0 +1,53 @@
+{
+  "name": "TRI-KNOT | 三日坊主を打ち破る、3人連帯責任フィットネス",
+  "short_name": "TRI-KNOT",
+  "description": "3人1組でランニング・ジム通いを監視し合う、連帯責任型の運動習慣化プラットフォーム",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0b",
+  "theme_color": "#0a0a0b",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable any"
+    }
+  ],
+  "categories": ["health", "fitness", "lifestyle"],
+  "shortcuts": [
+    {
+      "name": "運動記録",
+      "short_name": "記録",
+      "description": "運動を記録する",
+      "url": "/dashboard?tab=tracking",
+      "icons": [
+        {
+          "src": "/icon-192x192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "ダッシュボード",
+      "short_name": "ホーム",
+      "description": "ダッシュボードを開く",
+      "url": "/dashboard",
+      "icons": [
+        {
+          "src": "/icon-192x192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ],
+  "screenshots": [],
+  "prefer_related_applications": false
+}
