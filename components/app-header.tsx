@@ -1,15 +1,17 @@
 "use client"
 
+import { useRouter } from "next/navigation"
 import { HandHelping, Skull } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface AppHeaderProps {
   teamName: string
   onSos: () => void
-  onFuneral: () => void
 }
 
-export function AppHeader({ teamName, onSos, onFuneral }: AppHeaderProps) {
+export function AppHeader({ teamName, onSos }: AppHeaderProps) {
+  const router = useRouter()
+
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur-lg">
       <div className="mx-auto flex max-w-md items-center justify-between px-4 py-3">
@@ -32,7 +34,7 @@ export function AppHeader({ teamName, onSos, onFuneral }: AppHeaderProps) {
             SOS
           </button>
           <button
-            onClick={onFuneral}
+            onClick={() => router.push("/funeral")}
             className={cn(
               "flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5",
               "text-xs font-bold text-muted-foreground hover:text-destructive hover:border-destructive/20 transition-colors"

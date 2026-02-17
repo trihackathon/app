@@ -1,26 +1,55 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { Play, Square, MapPin, Timer, Footprints, Dumbbell } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { useDashboard } from "@/components/dashboard-context"
+import {
+  startRunning,
+  finishRunning,
+  sendGPSPoints,
+  getGymLocations,
+  gymCheckin,
+  gymCheckout,
+} from "@/lib/api/endpoints"
+import type { GymLocationResponse } from "@/types/api"
 
 type Mode = "running" | "gym"
 
 export function TrackingScreen() {
+  const { team, refreshActivities, refreshStatus } = useDashboard()
   const [mode, setMode] = useState<Mode>("running")
   const [isTracking, setIsTracking] = useState(false)
   const [elapsed, setElapsed] = useState(0)
   const [distance, setDistance] = useState(0)
+  const [activityId, setActivityId] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [gymLocations, setGymLocations] = useState<GymLocationResponse[]>([])
+  const [selectedGym, setSelectedGym] = useState<string | null>(null)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const watchIdRef = useRef<number | null>(null)
+  const gpsBufferRef = useRef<{ latitude: number; longitude: number; accuracy: number; timestamp: string }[]>([])
+  const lastSendRef = useRef<number>(0)
 
+  // Get goal targets from team
+  const goalDistanceKm = team?.goal?.target_distance_km ?? 5
+  const goalDurationMin = team?.goal?.target_min_duration_min ?? 30
+
+  // Load gym locations
+  useEffect(() => {
+    if (mode === "gym") {
+      getGymLocations().then((result) => {
+        if (result.ok) setGymLocations(result.data)
+      })
+    }
+  }, [mode])
+
+  // Timer
   useEffect(() => {
     if (isTracking) {
       intervalRef.current = setInterval(() => {
         setElapsed((prev) => prev + 1)
-        if (mode === "running") {
-          setDistance((prev) => prev + 0.008 + Math.random() * 0.004)
-        }
       }, 1000)
     } else if (intervalRef.current) {
       clearInterval(intervalRef.current)
@@ -28,7 +57,27 @@ export function TrackingScreen() {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current)
     }
-  }, [isTracking, mode])
+  }, [isTracking])
+
+  const sendBufferedPoints = useCallback(async (aid: string) => {
+    const now = Date.now()
+    if (now - lastSendRef.current < 5000) return
+    if (gpsBufferRef.current.length === 0) return
+
+    const points = gpsBufferRef.current.map((p) => ({
+      latitude: p.latitude,
+      longitude: p.longitude,
+      accuracy: p.accuracy,
+      timestamp: p.timestamp,
+    }))
+    gpsBufferRef.current = []
+    lastSendRef.current = now
+
+    const result = await sendGPSPoints(aid, { points })
+    if (result.ok) {
+      setDistance(result.data.current_distance_km)
+    }
+  }, [])
 
   const formatTime = (seconds: number) => {
     const h = Math.floor(seconds / 3600)
@@ -39,19 +88,169 @@ export function TrackingScreen() {
 
   const pace = elapsed > 0 && distance > 0 ? elapsed / 60 / distance : 0
 
-  const handleStartStop = () => {
-    if (isTracking) {
-      setIsTracking(false)
-    } else {
+  const handleStartRunning = async () => {
+    setError(null)
+    try {
+      const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
+        navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true })
+      )
+
+      const result = await startRunning({
+        latitude: pos.coords.latitude,
+        longitude: pos.coords.longitude,
+      })
+
+      if (!result.ok) {
+        setError("ランニング開始に失敗しました")
+        return
+      }
+
+      const aid = result.data.id
+      setActivityId(aid)
       setElapsed(0)
       setDistance(0)
       setIsTracking(true)
+
+      // Start GPS watching
+      watchIdRef.current = navigator.geolocation.watchPosition(
+        (position) => {
+          gpsBufferRef.current.push({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+            timestamp: new Date().toISOString(),
+          })
+          sendBufferedPoints(aid)
+        },
+        undefined,
+        { enableHighAccuracy: true, maximumAge: 3000, timeout: 10000 }
+      )
+    } catch {
+      setError("位置情報の取得に失敗しました。GPS設定を確認してください。")
+    }
+  }
+
+  const handleStopRunning = async () => {
+    if (!activityId) return
+    setError(null)
+
+    // Stop GPS watching
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current)
+      watchIdRef.current = null
+    }
+
+    // Send remaining buffered points
+    if (gpsBufferRef.current.length > 0) {
+      await sendBufferedPoints(activityId)
+    }
+
+    try {
+      const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
+        navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true })
+      )
+
+      const result = await finishRunning(activityId, {
+        latitude: pos.coords.latitude,
+        longitude: pos.coords.longitude,
+      })
+
+      if (!result.ok) {
+        setError("ランニング終了の記録に失敗しました")
+      }
+    } catch {
+      setError("位置情報の取得に失敗しました")
+    }
+
+    setIsTracking(false)
+    setActivityId(null)
+    refreshActivities()
+    refreshStatus()
+  }
+
+  const handleStartGym = async () => {
+    setError(null)
+
+    if (!selectedGym && gymLocations.length > 0) {
+      setSelectedGym(gymLocations[0].id)
+    }
+
+    const gymId = selectedGym || gymLocations[0]?.id
+    if (!gymId) {
+      setError("ジムの場所が登録されていません")
+      return
+    }
+
+    try {
+      const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
+        navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true })
+      )
+
+      const result = await gymCheckin({
+        gym_location_id: gymId,
+        latitude: pos.coords.latitude,
+        longitude: pos.coords.longitude,
+      })
+
+      if (!result.ok) {
+        setError("チェックインに失敗しました")
+        return
+      }
+
+      setActivityId(result.data.id)
+      setElapsed(0)
+      setIsTracking(true)
+    } catch {
+      setError("位置情報の取得に失敗しました")
+    }
+  }
+
+  const handleStopGym = async () => {
+    if (!activityId) return
+    setError(null)
+
+    try {
+      const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
+        navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true })
+      )
+
+      const result = await gymCheckout(activityId, {
+        latitude: pos.coords.latitude,
+        longitude: pos.coords.longitude,
+      })
+
+      if (!result.ok) {
+        setError("チェックアウトに失敗しました")
+      }
+    } catch {
+      setError("位置情報の取得に失敗しました")
+    }
+
+    setIsTracking(false)
+    setActivityId(null)
+    refreshActivities()
+    refreshStatus()
+  }
+
+  const handleStartStop = () => {
+    if (isTracking) {
+      if (mode === "running") handleStopRunning()
+      else handleStopGym()
+    } else {
+      if (mode === "running") handleStartRunning()
+      else handleStartGym()
     }
   }
 
   return (
     <div className="mx-auto max-w-md px-4 pb-24 pt-6">
       <h1 className="mb-6 text-xl font-black text-foreground">運動を記録</h1>
+
+      {error && (
+        <div className="mb-4 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+          {error}
+        </div>
+      )}
 
       {/* Mode Toggle */}
       <div className="mb-6 flex gap-2 rounded-xl bg-card p-1.5 border border-border">
@@ -81,10 +280,25 @@ export function TrackingScreen() {
         </button>
       </div>
 
-      {/* Map Area (Simulated) */}
+      {/* Gym Location Selector */}
+      {mode === "gym" && !isTracking && gymLocations.length > 0 && (
+        <div className="mb-6 rounded-xl border border-border bg-card p-4">
+          <label className="mb-2 block text-xs font-bold text-foreground">ジムを選択</label>
+          <select
+            value={selectedGym || ""}
+            onChange={(e) => setSelectedGym(e.target.value)}
+            className="w-full rounded-lg border border-border bg-secondary p-2 text-sm text-foreground"
+          >
+            {gymLocations.map((gym) => (
+              <option key={gym.id} value={gym.id}>{gym.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* Map Area */}
       <div className="relative mb-6 overflow-hidden rounded-2xl border border-border bg-card">
         <div className="flex h-64 items-center justify-center relative">
-          {/* Simulated Map Grid */}
           <div
             className="absolute inset-0 opacity-10"
             style={{
@@ -96,7 +310,6 @@ export function TrackingScreen() {
 
           {isTracking ? (
             <div className="relative z-10 flex flex-col items-center">
-              {/* Animated GPS dot */}
               <div className="relative mb-4">
                 <div className="h-4 w-4 rounded-full bg-primary" />
                 <div className="absolute inset-0 animate-pulse-ring rounded-full bg-primary/40" />
@@ -104,7 +317,6 @@ export function TrackingScreen() {
 
               {mode === "running" ? (
                 <>
-                  {/* Simulated route line */}
                   <svg className="absolute inset-0 h-full w-full" viewBox="0 0 300 250">
                     <path
                       d="M 50 200 Q 100 150 130 130 T 180 100 T 220 70 T 260 50"
@@ -187,9 +399,9 @@ export function TrackingScreen() {
       {/* Goal Progress */}
       <div className="mb-6 rounded-xl border border-border bg-card p-4">
         <div className="mb-2 flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">今日の目標</span>
+          <span className="text-muted-foreground">今週の目標</span>
           <span className="font-bold text-foreground">
-            {mode === "running" ? "5.0 km" : "30 分"}
+            {mode === "running" ? `${goalDistanceKm} km` : `${goalDurationMin} 分`}
           </span>
         </div>
         <div className="h-2 overflow-hidden rounded-full bg-secondary">
@@ -197,18 +409,18 @@ export function TrackingScreen() {
             className={cn(
               "h-full rounded-full transition-all duration-500",
               mode === "running"
-                ? distance >= 5 ? "bg-accent" : "bg-primary"
-                : elapsed >= 1800 ? "bg-accent" : "bg-primary"
+                ? distance >= goalDistanceKm ? "bg-accent" : "bg-primary"
+                : elapsed / 60 >= goalDurationMin ? "bg-accent" : "bg-primary"
             )}
             style={{
-              width: `${Math.min(100, mode === "running" ? (distance / 5) * 100 : (elapsed / 1800) * 100)}%`,
+              width: `${Math.min(100, mode === "running" ? (distance / goalDistanceKm) * 100 : (elapsed / 60 / goalDurationMin) * 100)}%`,
             }}
           />
         </div>
         <div className="mt-1 text-right text-xs text-muted-foreground">
           {mode === "running"
-            ? `${Math.min(100, Math.round((distance / 5) * 100))}%`
-            : `${Math.min(100, Math.round((elapsed / 1800) * 100))}%`}
+            ? `${Math.min(100, Math.round((distance / goalDistanceKm) * 100))}%`
+            : `${Math.min(100, Math.round((elapsed / 60 / goalDurationMin) * 100))}%`}
         </div>
       </div>
 

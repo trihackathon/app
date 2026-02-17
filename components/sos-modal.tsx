@@ -1,52 +1,66 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { HandHelping, X, Check, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import type { TeamMemberResponse } from "@/types/api"
 
 interface SosModalProps {
   isOpen: boolean
   onClose: () => void
   memberName: string
   sosRemaining: number
+  teamMembers: TeamMemberResponse[]
+  currentUserId: string
 }
 
-export function SosModal({ isOpen, onClose, memberName, sosRemaining }: SosModalProps) {
+export function SosModal({ isOpen, onClose, memberName, sosRemaining, teamMembers, currentUserId }: SosModalProps) {
   const [step, setStep] = useState<"request" | "voting" | "result">("request")
-  const [votes, setVotes] = useState<{ name: string; approved: boolean | null }[]>([
-    { name: "佐藤 花子", approved: null },
-    { name: "鈴木 健太", approved: null },
-  ])
   const [reason, setReason] = useState("")
+
+  // Build voters from team members excluding current user
+  const otherMembers = teamMembers.filter((m) => m.user_id !== currentUserId)
+  const [votes, setVotes] = useState<{ name: string; approved: boolean | null }[]>(
+    otherMembers.map((m) => ({ name: m.name, approved: null }))
+  )
+
+  // Reset votes when members change
+  useEffect(() => {
+    setVotes(otherMembers.map((m) => ({ name: m.name, approved: null })))
+  }, [teamMembers, currentUserId])
 
   if (!isOpen) return null
 
   const handleSubmit = () => {
+    const voterNames = otherMembers.map((m) => m.name)
+    setVotes(voterNames.map((name) => ({ name, approved: null })))
     setStep("voting")
-    // Simulate voting
-    setTimeout(() => {
-      setVotes([
-        { name: "佐藤 花子", approved: true },
-        { name: "鈴木 健太", approved: null },
-      ])
-    }, 1500)
-    setTimeout(() => {
-      setVotes([
-        { name: "佐藤 花子", approved: true },
-        { name: "鈴木 健太", approved: true },
-      ])
-      setStep("result")
-    }, 3000)
+
+    // Simulate voting (SOS API未実装のため)
+    if (voterNames.length >= 1) {
+      setTimeout(() => {
+        setVotes((prev) =>
+          prev.map((v, i) => (i === 0 ? { ...v, approved: true } : v))
+        )
+      }, 1500)
+    }
+    if (voterNames.length >= 2) {
+      setTimeout(() => {
+        setVotes((prev) => prev.map((v) => ({ ...v, approved: true })))
+        setStep("result")
+      }, 3000)
+    } else {
+      setTimeout(() => {
+        setStep("result")
+      }, 2000)
+    }
   }
 
   const handleClose = () => {
     setStep("request")
     setReason("")
-    setVotes([
-      { name: "佐藤 花子", approved: null },
-      { name: "鈴木 健太", approved: null },
-    ])
+    setVotes(otherMembers.map((m) => ({ name: m.name, approved: null })))
     onClose()
   }
 

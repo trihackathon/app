@@ -1,16 +1,16 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { ArrowRight, Shield, MapPin, Zap, Users, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { RopeVisual } from "@/components/rope-visual"
 
-interface LandingPageProps {
-  onEnter: () => void
-}
-
-export function LandingPage({ onEnter }: LandingPageProps) {
+export function LandingPage() {
   const [showMore, setShowMore] = useState(false)
+  const router = useRouter()
+
+  const handleEnter = () => router.push("/auth/login")
 
   return (
     <div className="min-h-screen bg-background">
@@ -40,7 +40,7 @@ export function LandingPage({ onEnter }: LandingPageProps) {
             <Button
               variant="outline"
               size="sm"
-              onClick={onEnter}
+              onClick={handleEnter}
               className="border-primary/30 text-primary hover:bg-primary/10 bg-transparent"
             >
               ログイン
@@ -69,10 +69,10 @@ export function LandingPage({ onEnter }: LandingPageProps) {
             <div className="flex flex-col items-center gap-4 sm:flex-row">
               <Button
                 size="lg"
-                onClick={onEnter}
+                onClick={handleEnter}
                 className="bg-primary px-8 text-lg font-bold text-primary-foreground hover:bg-primary/90"
               >
-                デモを体験する
+                始める
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
               <button
@@ -237,10 +237,10 @@ export function LandingPage({ onEnter }: LandingPageProps) {
           </p>
           <Button
             size="lg"
-            onClick={onEnter}
+            onClick={handleEnter}
             className="bg-primary px-8 text-lg font-bold text-primary-foreground hover:bg-primary/90"
           >
-            デモを体験する
+            始める
             <ArrowRight className="ml-2 h-5 w-5" />
           </Button>
         </div>
