@@ -2,10 +2,9 @@
 
 import { DashboardHome } from "@/components/dashboard-home"
 import { useDashboard } from "@/components/dashboard-context"
-import { mockTeam } from "@/lib/mock-data"
 
 export default function DashboardPage() {
-  const { countdown } = useDashboard()
+  const { team, teamStatus, countdown } = useDashboard()
 
-  return <DashboardHome team={mockTeam} countdown={countdown} />
+  return <DashboardHome team={team} teamStatus={teamStatus} countdown={countdown} />
 }

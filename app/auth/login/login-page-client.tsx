@@ -17,7 +17,7 @@ export function LoginPageClient() {
   // ログイン済みの場合はリダイレクト
   useEffect(() => {
     if (!auth.loading && auth.user) {
-      router.push("/");
+      router.push("/dashboard");
     }
   }, [auth.loading, auth.user, router]);
 
@@ -28,7 +28,7 @@ export function LoginPageClient() {
 
     try {
       await auth.signInWithEmail(email, password);
-      router.push("/");
+      router.push("/dashboard");
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "エラーが発生しました";
       if (errorMessage.includes("user-not-found")) {
@@ -53,7 +53,7 @@ export function LoginPageClient() {
 
     try {
       await auth.signInWithGoogle();
-      router.push("/");
+      router.push("/dashboard");
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "エラーが発生しました";
       if (errorMessage.includes("popup-closed-by-user")) {

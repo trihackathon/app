@@ -1,10 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Copy, Check, Users, Footprints, Dumbbell, ArrowRight, ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { RopeVisual } from "@/components/rope-visual"
+import { createTeam, createGoal, createInvite, getTeam, joinTeam } from "@/lib/api/endpoints"
 
 interface TeamCreationProps {
   onComplete: () => void
@@ -12,17 +13,31 @@ interface TeamCreationProps {
 }
 
 type Step = "mode" | "goal" | "invite" | "waiting"
+type CreateMode = "create" | "join"
 
 export function TeamCreation({ onComplete, onBack }: TeamCreationProps) {
+  const [createMode, setCreateMode] = useState<CreateMode | null>(null)
   const [step, setStep] = useState<Step>("mode")
   const [exerciseType, setExerciseType] = useState<"running" | "gym" | null>(null)
+  const [teamName, setTeamName] = useState("")
   const [weeklyGoal, setWeeklyGoal] = useState(15)
   const [gymDays, setGymDays] = useState(3)
   const [gymMinutes, setGymMinutes] = useState(30)
   const [copied, setCopied] = useState(false)
-  const [joinedCount, setJoinedCount] = useState(1)
+  const [inviteCode, setInviteCode] = useState("")
+  const [joinCode, setJoinCode] = useState("")
+  const [teamId, setTeamId] = useState<string | null>(null)
+  const [memberCount, setMemberCount] = useState(1)
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const inviteCode = "TK-X7F9-2026"
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current)
+    }
+  }, [])
 
   const handleCopy = () => {
     navigator.clipboard.writeText(inviteCode).catch(() => {})
@@ -30,21 +45,230 @@ export function TeamCreation({ onComplete, onBack }: TeamCreationProps) {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const handleWait = () => {
-    setStep("waiting")
-    // Simulate members joining
-    setTimeout(() => setJoinedCount(2), 2000)
-    setTimeout(() => {
-      setJoinedCount(3)
-      setTimeout(onComplete, 1500)
-    }, 4000)
+  const handleCreateAndInvite = async () => {
+    if (!exerciseType || !teamName.trim()) {
+      setError("チーム名を入力してください")
+      return
+    }
+
+    setError(null)
+    setLoading(true)
+
+    try {
+      // 1. Create team
+      const teamResult = await createTeam({
+        name: teamName.trim(),
+        exercise_type: exerciseType,
+        strictness: "normal",
+      })
+
+      if (!teamResult.ok) {
+        setError("チーム作成に失敗しました")
+        setLoading(false)
+        return
+      }
+
+      const newTeamId = teamResult.data.id
+      setTeamId(newTeamId)
+
+      // 2. Create goal
+      const goalBody = exerciseType === "running"
+        ? { target_distance_km: weeklyGoal }
+        : { target_visits_per_week: gymDays, target_min_duration_min: gymMinutes }
+
+      await createGoal(newTeamId, goalBody)
+
+      // 3. Create invite
+      const inviteResult = await createInvite(newTeamId)
+      if (inviteResult.ok) {
+        setInviteCode(inviteResult.data.code)
+      } else {
+        setError("招待コードの生成に失敗しました")
+        setLoading(false)
+        return
+      }
+
+      setStep("invite")
+    } catch {
+      setError("エラーが発生しました")
+    } finally {
+      setLoading(false)
+    }
   }
 
+  const handleWait = () => {
+    if (!teamId) return
+    setStep("waiting")
+
+    // Poll for member count
+    pollingRef.current = setInterval(async () => {
+      const result = await getTeam(teamId)
+      if (result.ok) {
+        const count = result.data.members.length
+        setMemberCount(count)
+        if (count >= 3) {
+          if (pollingRef.current) clearInterval(pollingRef.current)
+          setTimeout(onComplete, 1500)
+        }
+      }
+    }, 3000)
+  }
+
+  const handleJoinTeam = async () => {
+    if (!joinCode.trim()) {
+      setError("招待コードを入力してください")
+      return
+    }
+
+    setError(null)
+    setLoading(true)
+
+    try {
+      const result = await joinTeam({ code: joinCode.trim() })
+      if (!result.ok) {
+        setError("チーム参加に失敗しました。コードを確認してください。")
+        setLoading(false)
+        return
+      }
+
+      if (result.data.team_ready) {
+        onComplete()
+      } else {
+        setTeamId(result.data.team.id)
+        setMemberCount(result.data.team.members.length)
+        setStep("waiting")
+
+        // Poll for remaining members
+        pollingRef.current = setInterval(async () => {
+          const teamResult = await getTeam(result.data.team.id)
+          if (teamResult.ok) {
+            const count = teamResult.data.members.length
+            setMemberCount(count)
+            if (count >= 3) {
+              if (pollingRef.current) clearInterval(pollingRef.current)
+              setTimeout(onComplete, 1500)
+            }
+          }
+        }, 3000)
+      }
+    } catch {
+      setError("エラーが発生しました")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Mode selection: create vs join
+  if (createMode === null) {
+    return (
+      <div className="mx-auto flex min-h-screen max-w-md flex-col px-4 py-8">
+        <button
+          onClick={onBack}
+          className="mb-6 flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          戻る
+        </button>
+
+        <h1 className="mb-2 text-2xl font-black text-foreground">チームに参加</h1>
+        <p className="mb-8 text-sm text-muted-foreground">
+          新しくチームを作成するか、招待コードで参加しましょう
+        </p>
+
+        {error && (
+          <div className="mb-4 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+            {error}
+          </div>
+        )}
+
+        <div className="flex flex-col gap-4">
+          <button
+            onClick={() => setCreateMode("create")}
+            className="flex items-center gap-4 rounded-xl border border-border bg-card p-6 text-left transition-colors hover:border-primary/30"
+          >
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/20">
+              <Users className="h-6 w-6 text-primary" />
+            </div>
+            <div>
+              <div className="text-lg font-bold text-foreground">チームを作成</div>
+              <div className="text-xs text-muted-foreground">新しいチームを作成して仲間を招待</div>
+            </div>
+          </button>
+
+          <button
+            onClick={() => setCreateMode("join")}
+            className="flex items-center gap-4 rounded-xl border border-border bg-card p-6 text-left transition-colors hover:border-primary/30"
+          >
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent/20">
+              <ArrowRight className="h-6 w-6 text-accent" />
+            </div>
+            <div>
+              <div className="text-lg font-bold text-foreground">招待コードで参加</div>
+              <div className="text-xs text-muted-foreground">既存のチームに参加する</div>
+            </div>
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // Join team with code
+  if (createMode === "join") {
+    return (
+      <div className="mx-auto flex min-h-screen max-w-md flex-col px-4 py-8">
+        <button
+          onClick={() => setCreateMode(null)}
+          className="mb-6 flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          戻る
+        </button>
+
+        <h1 className="mb-2 text-2xl font-black text-foreground">招待コードで参加</h1>
+        <p className="mb-8 text-sm text-muted-foreground">
+          チームメイトから受け取った招待コードを入力してください
+        </p>
+
+        {error && (
+          <div className="mb-4 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+            {error}
+          </div>
+        )}
+
+        <div className="rounded-xl border border-border bg-card p-6">
+          <label htmlFor="join-code" className="mb-2 block text-sm font-bold text-foreground">
+            招待コード
+          </label>
+          <input
+            id="join-code"
+            type="text"
+            value={joinCode}
+            onChange={(e) => setJoinCode(e.target.value)}
+            placeholder="例: TK-XXXX-XXXX"
+            className="w-full rounded-lg border border-border bg-secondary p-3 text-center font-mono text-lg tracking-widest text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+          />
+        </div>
+
+        <div className="mt-auto pt-8">
+          <Button
+            onClick={handleJoinTeam}
+            disabled={!joinCode.trim() || loading}
+            className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+          >
+            {loading ? "参加中..." : "チームに参加"}
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  // Create team flow
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col px-4 py-8">
       {/* Back Button */}
       <button
-        onClick={step === "mode" ? onBack : () => {
+        onClick={step === "mode" ? () => setCreateMode(null) : () => {
           const steps: Step[] = ["mode", "goal", "invite", "waiting"]
           const currentIdx = steps.indexOf(step)
           if (currentIdx > 0) setStep(steps[currentIdx - 1])
@@ -69,6 +293,12 @@ export function TeamCreation({ onComplete, onBack }: TeamCreationProps) {
           />
         ))}
       </div>
+
+      {error && (
+        <div className="mb-4 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+          {error}
+        </div>
+      )}
 
       {step === "mode" && (
         <div className="flex flex-1 flex-col">
@@ -136,10 +366,25 @@ export function TeamCreation({ onComplete, onBack }: TeamCreationProps) {
 
       {step === "goal" && (
         <div className="flex flex-1 flex-col">
-          <h1 className="mb-2 text-2xl font-black text-foreground">目標を設定</h1>
+          <h1 className="mb-2 text-2xl font-black text-foreground">チーム情報 & 目標</h1>
           <p className="mb-8 text-sm text-muted-foreground">
-            現実的な目標から始めましょう
+            チーム名と目標を設定しましょう
           </p>
+
+          {/* Team Name */}
+          <div className="mb-6 rounded-xl border border-border bg-card p-6">
+            <label htmlFor="team-name" className="mb-4 block text-sm font-bold text-foreground">
+              チーム名
+            </label>
+            <input
+              id="team-name"
+              type="text"
+              value={teamName}
+              onChange={(e) => setTeamName(e.target.value)}
+              placeholder="例: 鉄の意志"
+              className="w-full rounded-lg border border-border bg-secondary p-3 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+            />
+          </div>
 
           {exerciseType === "running" ? (
             <div className="rounded-xl border border-border bg-card p-6">
@@ -211,10 +456,11 @@ export function TeamCreation({ onComplete, onBack }: TeamCreationProps) {
 
           <div className="mt-auto pt-8">
             <Button
-              onClick={() => setStep("invite")}
+              onClick={handleCreateAndInvite}
+              disabled={!teamName.trim() || loading}
               className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
             >
-              次へ
+              {loading ? "作成中..." : "チームを作成"}
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </div>
@@ -262,44 +508,25 @@ export function TeamCreation({ onComplete, onBack }: TeamCreationProps) {
       {step === "waiting" && (
         <div className="flex flex-1 flex-col items-center justify-center text-center">
           <div className="mb-8">
-            <RopeVisual hp={joinedCount * 33} size={160} />
+            <RopeVisual hp={memberCount * 33} size={160} />
           </div>
 
           <h1 className="mb-4 text-2xl font-black text-foreground">
             メンバー参加中...
           </h1>
 
-          <div className="mb-8 flex flex-col gap-3 w-full">
-            {["田中 太郎（あなた）", "佐藤 花子", "鈴木 健太"].map((name, i) => (
-              <div
-                key={name}
-                className={cn(
-                  "flex items-center gap-3 rounded-xl border p-4 transition-all duration-500",
-                  i < joinedCount
-                    ? "border-accent/20 bg-accent/5"
-                    : "border-border bg-card opacity-40"
-                )}
-              >
-                <div className={cn(
-                  "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold",
-                  i < joinedCount ? "bg-accent/20 text-accent" : "bg-secondary text-muted-foreground"
-                )}>
-                  {name.charAt(0)}
-                </div>
-                <span className="text-sm font-bold text-foreground">{name}</span>
-                {i < joinedCount && (
-                  <Check className="ml-auto h-4 w-4 text-accent" />
-                )}
-              </div>
-            ))}
+          <div className="mb-8 w-full">
+            <div className="flex items-center justify-center gap-2 text-lg font-bold text-foreground">
+              <Users className="h-5 w-5 text-primary" />
+              {memberCount} / 3 参加済み
+            </div>
+            <p className="mt-2 text-sm text-muted-foreground">
+              仲間が招待コードで参加するのを待っています...
+            </p>
           </div>
 
-          <div className="text-sm text-muted-foreground">
-            {joinedCount}/3 参加済み
-          </div>
-
-          {joinedCount === 3 && (
-            <div className="mt-4 animate-float-up text-lg font-black text-accent">
+          {memberCount >= 3 && (
+            <div className="animate-float-up text-lg font-black text-accent">
               チーム結成完了！
             </div>
           )}

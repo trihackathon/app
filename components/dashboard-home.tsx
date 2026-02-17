@@ -1,31 +1,56 @@
 "use client"
 
-import { Timer, TrendingUp, Flame } from "lucide-react"
+import { Timer, TrendingUp } from "lucide-react"
 import { RopeVisual } from "@/components/rope-visual"
 import { cn } from "@/lib/utils"
-import type { Team } from "@/lib/mock-data"
+import type { TeamResponse, TeamStatusResponse, MemberProgress } from "@/types/api"
 
 interface DashboardHomeProps {
-  team: Team
+  team: TeamResponse | null
+  teamStatus: TeamStatusResponse | null
   countdown: string
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const config = {
-    synced: { label: "完了", color: "bg-accent text-accent-foreground" },
-    pending: { label: "未完了", color: "bg-warning text-warning-foreground" },
-    expired: { label: "期限切れ", color: "bg-destructive text-destructive-foreground" },
+function StatusBadge({ percent }: { percent: number }) {
+  if (percent >= 100) {
+    return (
+      <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold bg-accent text-accent-foreground">
+        完了
+      </span>
+    )
   }
-  const c = config[status as keyof typeof config] || config.pending
+  if (percent > 0) {
+    return (
+      <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold bg-warning text-warning-foreground">
+        進行中
+      </span>
+    )
+  }
   return (
-    <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold", c.color)}>
-      {c.label}
+    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold bg-destructive text-destructive-foreground">
+      未着手
     </span>
   )
 }
 
-export function DashboardHome({ team, countdown }: DashboardHomeProps) {
-  const hpPercent = (team.hp / team.maxHp) * 100
+function getStatusFromPercent(percent: number): string {
+  if (percent >= 100) return "synced"
+  if (percent > 0) return "pending"
+  return "expired"
+}
+
+export function DashboardHome({ team, teamStatus, countdown }: DashboardHomeProps) {
+  if (!team) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <div className="text-muted-foreground">チーム情報を読み込み中...</div>
+      </div>
+    )
+  }
+
+  const hp = team.current_hp
+  const maxHp = team.max_hp
+  const hpPercent = maxHp > 0 ? (hp / maxHp) * 100 : 0
   const hpColor =
     hpPercent > 70
       ? "text-accent"
@@ -39,6 +64,8 @@ export function DashboardHome({ team, countdown }: DashboardHomeProps) {
         ? "bg-warning"
         : "bg-destructive"
 
+  const membersProgress: MemberProgress[] = teamStatus?.members_progress ?? []
+
   return (
     <div className="mx-auto max-w-md px-4 pb-24 pt-6">
       {/* Team Header */}
@@ -46,8 +73,7 @@ export function DashboardHome({ team, countdown }: DashboardHomeProps) {
         <div>
           <h1 className="text-xl font-black text-foreground">{team.name}</h1>
           <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            <Flame className="h-3 w-3 text-primary" />
-            <span>{team.streakDays}日連続</span>
+            <span>Week {team.current_week}</span>
           </div>
         </div>
         <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5">
@@ -62,12 +88,12 @@ export function DashboardHome({ team, countdown }: DashboardHomeProps) {
       {/* Rope & HP */}
       <div className="relative mb-6 rounded-2xl border border-border bg-card p-6">
         <div className="flex flex-col items-center">
-          <RopeVisual hp={team.hp} size={160} />
+          <RopeVisual hp={hp} size={160} />
           <div className="mt-4 flex items-baseline gap-2">
             <span className={cn("text-4xl font-black animate-count-pulse", hpColor)}>
-              {team.hp}
+              {hp}
             </span>
-            <span className="text-sm text-muted-foreground">/ {team.maxHp} HP</span>
+            <span className="text-sm text-muted-foreground">/ {maxHp} HP</span>
           </div>
           {/* HP Bar */}
           <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-secondary">
@@ -89,66 +115,63 @@ export function DashboardHome({ team, countdown }: DashboardHomeProps) {
       <div className="mb-6">
         <h2 className="mb-3 text-sm font-bold text-foreground">メンバー状況</h2>
         <div className="flex flex-col gap-3">
-          {team.members.map((member) => (
-            <div
-              key={member.id}
-              className={cn(
-                "flex items-center gap-3 rounded-xl border p-4 transition-colors",
-                member.status === "synced"
-                  ? "border-accent/20 bg-accent/5"
-                  : member.status === "pending"
-                    ? "border-warning/20 bg-warning/5"
-                    : "border-destructive/20 bg-destructive/5"
-              )}
-            >
-              {/* Avatar */}
+          {membersProgress.map((member) => {
+            const status = getStatusFromPercent(member.target_progress_percent)
+            const distanceKm = member.current_week_distance_km ?? 0
+            const durationMin = member.current_week_duration_min ?? 0
+
+            return (
               <div
+                key={member.user_id}
                 className={cn(
-                  "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold",
-                  member.status === "synced"
-                    ? "bg-accent/20 text-accent"
-                    : member.status === "pending"
-                      ? "bg-warning/20 text-warning"
-                      : "bg-destructive/20 text-destructive"
+                  "flex items-center gap-3 rounded-xl border p-4 transition-colors",
+                  status === "synced"
+                    ? "border-accent/20 bg-accent/5"
+                    : status === "pending"
+                      ? "border-warning/20 bg-warning/5"
+                      : "border-destructive/20 bg-destructive/5"
                 )}
               >
-                {member.avatar}
-              </div>
-
-              {/* Info */}
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-foreground">
-                    {member.name}
-                  </span>
-                  <StatusBadge status={member.status} />
-                </div>
-                <div className="mt-0.5 text-xs text-muted-foreground">
-                  {member.exerciseType === "running" ? (
-                    <>
-                      {member.todayDistance ?? 0}km / {member.todayGoal}km
-                    </>
-                  ) : (
-                    <>
-                      {member.gymMinutes ?? 0}分 / {member.gymGoal}分
-                    </>
+                {/* Avatar */}
+                <div
+                  className={cn(
+                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold",
+                    status === "synced"
+                      ? "bg-accent/20 text-accent"
+                      : status === "pending"
+                        ? "bg-warning/20 text-warning"
+                        : "bg-destructive/20 text-destructive"
                   )}
+                >
+                  {member.user_name.charAt(0)}
+                </div>
+
+                {/* Info */}
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-foreground">
+                      {member.user_name}
+                    </span>
+                    <StatusBadge percent={member.target_progress_percent} />
+                  </div>
+                  <div className="mt-0.5 text-xs text-muted-foreground">
+                    {distanceKm > 0 && <>{distanceKm.toFixed(1)}km</>}
+                    {distanceKm > 0 && durationMin > 0 && " / "}
+                    {durationMin > 0 && <>{durationMin}分</>}
+                    {distanceKm === 0 && durationMin === 0 && "まだ記録なし"}
+                  </div>
+                </div>
+
+                {/* Progress Ring */}
+                <div className="shrink-0">
+                  <ProgressRing
+                    value={member.target_progress_percent}
+                    status={status}
+                  />
                 </div>
               </div>
-
-              {/* Progress Ring */}
-              <div className="shrink-0">
-                <ProgressRing
-                  value={
-                    member.exerciseType === "running"
-                      ? ((member.todayDistance ?? 0) / (member.todayGoal ?? 1)) * 100
-                      : ((member.gymMinutes ?? 0) / (member.gymGoal ?? 1)) * 100
-                  }
-                  status={member.status}
-                />
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
 
@@ -157,21 +180,21 @@ export function DashboardHome({ team, countdown }: DashboardHomeProps) {
         <div className="rounded-xl border border-border bg-card p-4">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <TrendingUp className="h-3 w-3" />
-            累計走行距離
+            現在HP
           </div>
           <div className="mt-1 text-2xl font-black text-foreground">
-            {team.totalDistance}
-            <span className="text-sm font-normal text-muted-foreground">km</span>
+            {hp}
+            <span className="text-sm font-normal text-muted-foreground">/{maxHp}</span>
           </div>
         </div>
         <div className="rounded-xl border border-border bg-card p-4">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <TrendingUp className="h-3 w-3" />
-            累計ジム時間
+            現在の週
           </div>
           <div className="mt-1 text-2xl font-black text-foreground">
-            {team.totalGymHours}
-            <span className="text-sm font-normal text-muted-foreground">h</span>
+            {team.current_week}
+            <span className="text-sm font-normal text-muted-foreground">週目</span>
           </div>
         </div>
       </div>

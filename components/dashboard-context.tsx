@@ -1,42 +1,178 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
-import { mockNotifications } from "@/lib/mock-data"
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react"
+import { useRouter } from "next/navigation"
+import { getMe, getMyTeam, getTeamStatus, getTeamActivities, getCurrentEvaluation, getMyPrediction } from "@/lib/api/endpoints"
+import type {
+  UserResponse,
+  TeamResponse,
+  TeamStatusResponse,
+  ActivityResponse,
+  CurrentWeekEvaluationResponse,
+  PredictionResponse,
+} from "@/types/api"
 
 interface DashboardContextType {
+  user: UserResponse | null
+  team: TeamResponse | null
+  teamStatus: TeamStatusResponse | null
+  activities: ActivityResponse[]
+  currentEvaluation: CurrentWeekEvaluationResponse | null
+  prediction: PredictionResponse | null
   countdown: string
   sosOpen: boolean
   setSosOpen: (open: boolean) => void
   unreadCount: number
+  isLoading: boolean
+  error: string | null
+  refreshTeam: () => Promise<void>
+  refreshActivities: () => Promise<void>
+  refreshStatus: () => Promise<void>
 }
 
 const DashboardContext = createContext<DashboardContextType | null>(null)
 
 export function DashboardProvider({ children }: { children: ReactNode }) {
-  const [countdown, setCountdown] = useState("02:59:00")
+  const router = useRouter()
+  const [user, setUser] = useState<UserResponse | null>(null)
+  const [team, setTeam] = useState<TeamResponse | null>(null)
+  const [teamStatus, setTeamStatus] = useState<TeamStatusResponse | null>(null)
+  const [activities, setActivities] = useState<ActivityResponse[]>([])
+  const [currentEvaluation, setCurrentEvaluation] = useState<CurrentWeekEvaluationResponse | null>(null)
+  const [prediction, setPrediction] = useState<PredictionResponse | null>(null)
+  const [countdown, setCountdown] = useState("--:--:--")
   const [sosOpen, setSosOpen] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const unreadCount = mockNotifications.filter((n) => !n.read).length
+  const unreadCount = 0
 
+  // Countdown based on currentEvaluation.week_end
   useEffect(() => {
-    let seconds = 2 * 3600 + 59 * 60
+    if (!currentEvaluation?.week_end) return
 
-    const interval = setInterval(() => {
-      seconds -= 1
-      if (seconds <= 0) seconds = 0
-      const h = Math.floor(seconds / 3600)
-      const m = Math.floor((seconds % 3600) / 60)
-      const s = seconds % 60
+    const updateCountdown = () => {
+      const now = new Date().getTime()
+      const end = new Date(currentEvaluation.week_end).getTime()
+      const diff = Math.max(0, Math.floor((end - now) / 1000))
+      const h = Math.floor(diff / 3600)
+      const m = Math.floor((diff % 3600) / 60)
+      const s = diff % 60
       setCountdown(
         `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`
       )
-    }, 1000)
+    }
 
+    updateCountdown()
+    const interval = setInterval(updateCountdown, 1000)
     return () => clearInterval(interval)
+  }, [currentEvaluation?.week_end])
+
+  const refreshTeam = useCallback(async () => {
+    const result = await getMyTeam()
+    if (result.ok) {
+      setTeam(result.data)
+    }
   }, [])
 
+  const refreshActivities = useCallback(async () => {
+    if (!team?.id) return
+    const result = await getTeamActivities(team.id)
+    if (result.ok) {
+      setActivities(result.data)
+    }
+  }, [team?.id])
+
+  const refreshStatus = useCallback(async () => {
+    if (!team?.id) return
+    const result = await getTeamStatus(team.id)
+    if (result.ok) {
+      setTeamStatus(result.data)
+    }
+  }, [team?.id])
+
+  // Initial data load
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadData() {
+      setIsLoading(true)
+      setError(null)
+
+      try {
+        // 1. Get user
+        const userResult = await getMe()
+        if (cancelled) return
+        if (!userResult.ok) {
+          setError("ユーザー情報の取得に失敗しました")
+          setIsLoading(false)
+          return
+        }
+        setUser(userResult.data)
+
+        // 2. Get team
+        const teamResult = await getMyTeam()
+        if (cancelled) return
+        if (!teamResult.ok) {
+          // Team not found → redirect to create-team
+          router.push("/create-team")
+          return
+        }
+        setTeam(teamResult.data)
+        const teamId = teamResult.data.id
+
+        // 3. Parallel fetches
+        const [statusResult, activitiesResult, evalResult, predictionResult] = await Promise.all([
+          getTeamStatus(teamId),
+          getTeamActivities(teamId),
+          getCurrentEvaluation(teamId),
+          getMyPrediction(),
+        ])
+
+        if (cancelled) return
+
+        if (statusResult.ok) setTeamStatus(statusResult.data)
+        if (activitiesResult.ok) setActivities(activitiesResult.data)
+        if (evalResult.ok) setCurrentEvaluation(evalResult.data)
+        if (predictionResult.ok) setPrediction(predictionResult.data)
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "データの取得に失敗しました")
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    loadData()
+
+    return () => {
+      cancelled = true
+    }
+  }, [router])
+
   return (
-    <DashboardContext.Provider value={{ countdown, sosOpen, setSosOpen, unreadCount }}>
+    <DashboardContext.Provider
+      value={{
+        user,
+        team,
+        teamStatus,
+        activities,
+        currentEvaluation,
+        prediction,
+        countdown,
+        sosOpen,
+        setSosOpen,
+        unreadCount,
+        isLoading,
+        error,
+        refreshTeam,
+        refreshActivities,
+        refreshStatus,
+      }}
+    >
       {children}
     </DashboardContext.Provider>
   )

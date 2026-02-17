@@ -170,7 +170,7 @@ export function SignupPageClient() {
       });
 
       if (result.ok) {
-        router.push("/");
+        router.push("/create-team");
       } else {
         const errorMsg = result.error.error || "不明なエラー";
         setError(`ユーザー情報の作成に失敗しました: ${errorMsg}`);

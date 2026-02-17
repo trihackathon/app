@@ -4,15 +4,23 @@ import { AppHeader } from "@/components/app-header"
 import { BottomNav } from "@/components/bottom-nav"
 import { SosModal } from "@/components/sos-modal"
 import { DashboardProvider, useDashboard } from "@/components/dashboard-context"
-import { mockTeam } from "@/lib/mock-data"
+import { AuthGuard } from "@/components/auth-guard"
 
 function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
-  const { sosOpen, setSosOpen, unreadCount } = useDashboard()
+  const { sosOpen, setSosOpen, unreadCount, team, user, isLoading } = useDashboard()
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="text-muted-foreground">読み込み中...</div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-background">
       <AppHeader
-        teamName={mockTeam.name}
+        teamName={team?.name ?? "チーム未設定"}
         onSos={() => setSosOpen(true)}
       />
 
@@ -23,7 +31,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       <SosModal
         isOpen={sosOpen}
         onClose={() => setSosOpen(false)}
-        memberName="田中 太郎"
+        memberName={user?.name ?? ""}
         sosRemaining={1}
       />
     </div>
@@ -32,8 +40,10 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <DashboardProvider>
-      <DashboardLayoutInner>{children}</DashboardLayoutInner>
-    </DashboardProvider>
+    <AuthGuard>
+      <DashboardProvider>
+        <DashboardLayoutInner>{children}</DashboardLayoutInner>
+      </DashboardProvider>
+    </AuthGuard>
   )
 }

@@ -10,7 +10,7 @@ export function LandingPage() {
   const [showMore, setShowMore] = useState(false)
   const router = useRouter()
 
-  const handleEnter = () => router.push("/create-team")
+  const handleEnter = () => router.push("/auth/login")
 
   return (
     <div className="min-h-screen bg-background">
@@ -72,7 +72,7 @@ export function LandingPage() {
                 onClick={handleEnter}
                 className="bg-primary px-8 text-lg font-bold text-primary-foreground hover:bg-primary/90"
               >
-                デモを体験する
+                始める
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
               <button
