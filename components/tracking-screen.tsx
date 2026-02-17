@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { Play, Square, MapPin, Timer, Footprints, Dumbbell, Loader2 } from "lucide-react"
+import { Play, Square, MapPin, Timer, Footprints, Dumbbell, Loader2, Settings } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useDashboard } from "@/components/dashboard-context"
@@ -19,13 +20,21 @@ import type { GymLocationResponse, ActivityResponse } from "@/types/api"
 type Mode = "running" | "gym"
 
 export function TrackingScreen() {
+  const router = useRouter()
   const { user, team, currentEvaluation, refreshActivities, refreshStatus, refreshEvaluation } = useDashboard()
 
   // 今週の累積データ（自分の進捗）
   const myWeeklyProgress = currentEvaluation?.members?.find((m) => m.user_id === user?.id)
   const weeklyDistanceKm = myWeeklyProgress?.total_distance_km ?? 0
   const weeklyVisits = myWeeklyProgress?.total_visits ?? 0
-  const [mode, setMode] = useState<Mode>("running")
+  const [mode, setMode] = useState<Mode>((team?.exercise_type as Mode) || "running")
+
+  // チームのexercise_typeが変わったら同期
+  useEffect(() => {
+    if (team?.exercise_type) {
+      setMode(team.exercise_type as Mode)
+    }
+  }, [team?.exercise_type])
   const [isTracking, setIsTracking] = useState(false)
   const [elapsed, setElapsed] = useState(0)
   const [distance, setDistance] = useState(0)
@@ -41,14 +50,16 @@ export function TrackingScreen() {
   const lastSendRef = useRef<number>(0)
   const startTimeRef = useRef<Date | null>(null)
 
-  // Get goal targets from team
-  const goalDistanceKm = team?.goal?.target_distance_km ?? 5
-  const goalVisitsPerWeek = team?.goal?.target_visits_per_week ?? 3
+  // Get goal targets from team (nullならセクション非表示にするためフォールバックしない)
+  const goalDistanceKm = team?.goal?.target_distance_km ?? null
+  const goalDurationMin = team?.goal?.target_min_duration_min ?? null
+  const goalVisitsPerWeek = team?.goal?.target_visits_per_week ?? null
+  const hasGoal = team?.goal != null
 
   // 表示用の累積値（ランニング中は今週の累積 + 今回の距離）
   const displayDistanceKm = mode === "running" ? weeklyDistanceKm + distance : weeklyDistanceKm
-  const safeGoalKm = goalDistanceKm > 0 ? goalDistanceKm : 1
-  const safeGoalVisits = goalVisitsPerWeek > 0 ? goalVisitsPerWeek : 1
+  const safeGoalKm = goalDistanceKm && goalDistanceKm > 0 ? goalDistanceKm : 1
+  const safeGoalVisits = goalVisitsPerWeek && goalVisitsPerWeek > 0 ? goalVisitsPerWeek : 1
 
   // 進行中のアクティビティを復元する
   useEffect(() => {
@@ -363,48 +374,50 @@ export function TrackingScreen() {
         </div>
       )}
 
-      {/* Mode Toggle */}
-      <div className="mb-6 flex gap-2 rounded-xl bg-card p-1.5 border border-border">
-        <button
-          onClick={() => { if (!isTracking) setMode("running") }}
-          className={cn(
-            "flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-bold transition-colors",
-            mode === "running"
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          <Footprints className="h-4 w-4" />
-          ランニング
-        </button>
-        <button
-          onClick={() => { if (!isTracking) setMode("gym") }}
-          className={cn(
-            "flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-bold transition-colors",
-            mode === "gym"
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          <Dumbbell className="h-4 w-4" />
-          ジム
-        </button>
+      {/* Mode Label */}
+      <div className="mb-6 flex items-center gap-2 rounded-xl bg-card px-4 py-2.5 border border-border">
+        {mode === "running" ? (
+          <>
+            <Footprints className="h-4 w-4 text-primary" />
+            <span className="text-sm font-bold text-foreground">ランニング</span>
+          </>
+        ) : (
+          <>
+            <Dumbbell className="h-4 w-4 text-primary" />
+            <span className="text-sm font-bold text-foreground">ジム</span>
+          </>
+        )}
       </div>
 
       {/* Gym Location Selector */}
-      {mode === "gym" && !isTracking && gymLocations.length > 0 && (
-        <div className="mb-6 rounded-xl border border-border bg-card p-4">
-          <label className="mb-2 block text-xs font-bold text-foreground">ジムを選択</label>
-          <select
-            value={selectedGym || ""}
-            onChange={(e) => setSelectedGym(e.target.value)}
-            className="w-full rounded-lg border border-border bg-secondary p-2 text-sm text-foreground"
-          >
-            {gymLocations.map((gym) => (
-              <option key={gym.id} value={gym.id}>{gym.name}</option>
-            ))}
-          </select>
-        </div>
+      {mode === "gym" && !isTracking && (
+        gymLocations.length > 0 ? (
+          <div className="mb-6 rounded-xl border border-border bg-card p-4">
+            <label className="mb-2 block text-xs font-bold text-foreground">ジムを選択</label>
+            <select
+              value={selectedGym || ""}
+              onChange={(e) => setSelectedGym(e.target.value)}
+              className="w-full rounded-lg border border-border bg-secondary p-2 text-sm text-foreground"
+            >
+              {gymLocations.map((gym) => (
+                <option key={gym.id} value={gym.id}>{gym.name}</option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <div className="mb-6 rounded-xl border border-border bg-card p-4 text-center">
+            <p className="mb-3 text-sm text-muted-foreground">ジムが登録されていません。設定画面から登録してください。</p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.push("/dashboard/settings")}
+              className="gap-1.5"
+            >
+              <Settings className="h-4 w-4" />
+              設定画面へ
+            </Button>
+          </div>
+        )
       )}
 
       {/* Map Area */}
@@ -507,35 +520,56 @@ export function TrackingScreen() {
         )}
       </div>
 
-      {/* Goal Progress - 今週の累積を表示 */}
-      <div className="mb-6 rounded-xl border border-border bg-card p-4">
-        <div className="mb-2 flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">今週の目標</span>
-          <span className="font-bold text-foreground">
-            {mode === "running"
-              ? `${displayDistanceKm.toFixed(1)} / ${goalDistanceKm} km`
-              : `${weeklyVisits} / ${goalVisitsPerWeek} 回`}
-          </span>
+      {/* Goal Progress - 今週の累積を表示（目標設定がある場合のみ） */}
+      {hasGoal && mode === "running" && goalDistanceKm != null && (
+        <div className="mb-6 rounded-xl border border-border bg-card p-4">
+          <div className="mb-2 flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">今週の目標</span>
+            <span className="font-bold text-foreground">
+              {`${displayDistanceKm.toFixed(1)} / ${goalDistanceKm} km`}
+            </span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-secondary">
+            <div
+              className={cn(
+                "h-full rounded-full transition-all duration-500",
+                displayDistanceKm >= goalDistanceKm ? "bg-accent" : "bg-primary"
+              )}
+              style={{
+                width: `${Math.min(100, (displayDistanceKm / safeGoalKm) * 100)}%`,
+              }}
+            />
+          </div>
+          <div className="mt-1 text-right text-xs text-muted-foreground">
+            {`${Math.min(100, Math.round((displayDistanceKm / safeGoalKm) * 100))}%`}
+          </div>
         </div>
-        <div className="h-2 overflow-hidden rounded-full bg-secondary">
-          <div
-            className={cn(
-              "h-full rounded-full transition-all duration-500",
-              mode === "running"
-                ? displayDistanceKm >= goalDistanceKm ? "bg-accent" : "bg-primary"
-                : weeklyVisits >= goalVisitsPerWeek ? "bg-accent" : "bg-primary"
-            )}
-            style={{
-              width: `${Math.min(100, mode === "running" ? (displayDistanceKm / safeGoalKm) * 100 : (weeklyVisits / safeGoalVisits) * 100)}%`,
-            }}
-          />
+      )}
+
+      {hasGoal && mode === "gym" && goalVisitsPerWeek != null && (
+        <div className="mb-6 rounded-xl border border-border bg-card p-4">
+          <div className="mb-2 flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">今週の目標</span>
+            <span className="font-bold text-foreground">
+              {`${weeklyVisits} / ${goalVisitsPerWeek} 回`}
+            </span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-secondary">
+            <div
+              className={cn(
+                "h-full rounded-full transition-all duration-500",
+                weeklyVisits >= goalVisitsPerWeek ? "bg-accent" : "bg-primary"
+              )}
+              style={{
+                width: `${Math.min(100, (weeklyVisits / safeGoalVisits) * 100)}%`,
+              }}
+            />
+          </div>
+          <div className="mt-1 text-right text-xs text-muted-foreground">
+            {`${Math.min(100, Math.round((weeklyVisits / safeGoalVisits) * 100))}%`}
+          </div>
         </div>
-        <div className="mt-1 text-right text-xs text-muted-foreground">
-          {mode === "running"
-            ? `${Math.min(100, Math.round((displayDistanceKm / safeGoalKm) * 100))}%`
-            : `${Math.min(100, Math.round((weeklyVisits / safeGoalVisits) * 100))}%`}
-        </div>
-      </div>
+      )}
 
       {/* Start/Stop Button */}
       <Button
