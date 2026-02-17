@@ -240,7 +240,7 @@ export function LandingPage() {
             onClick={handleEnter}
             className="bg-primary px-8 text-lg font-bold text-primary-foreground hover:bg-primary/90"
           >
-            デモを体験する
+            始める
             <ArrowRight className="ml-2 h-5 w-5" />
           </Button>
         </div>

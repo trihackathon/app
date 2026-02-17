@@ -33,6 +33,8 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
         onClose={() => setSosOpen(false)}
         memberName={user?.name ?? ""}
         sosRemaining={1}
+        teamMembers={team?.members ?? []}
+        currentUserId={user?.id ?? ""}
       />
     </div>
   )
