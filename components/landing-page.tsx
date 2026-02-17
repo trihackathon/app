@@ -2,15 +2,29 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowRight, Shield, MapPin, Zap, Users, ChevronDown } from "lucide-react"
+import Link from "next/link"
+import { ArrowRight, Shield, MapPin, Zap, Users, ChevronDown, LogOut, UserPlus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { RopeVisual } from "@/components/rope-visual"
+import { useAuth } from "@/hooks/use-auth"
 
 export function LandingPage() {
   const [showMore, setShowMore] = useState(false)
   const router = useRouter()
+  const { user, loading, signOut } = useAuth()
 
-  const handleEnter = () => router.push("/auth/login")
+  const handleEnter = () => {
+    if (user) {
+      router.push("/dashboard")
+    } else {
+      router.push("/auth/login")
+    }
+  }
+
+  const handleSignOut = async () => {
+    await signOut()
+    router.refresh()
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -37,14 +51,55 @@ export function LandingPage() {
                 TRI-KNOT
               </span>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleEnter}
-              className="border-primary/30 text-primary hover:bg-primary/10 bg-transparent"
-            >
-              ログイン
-            </Button>
+
+            {/* 認証状態に応じたボタン */}
+            <div className="flex items-center gap-2">
+              {loading ? (
+                <div className="h-9 w-20 animate-pulse rounded-lg bg-muted" />
+              ) : user ? (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleEnter}
+                    className="text-foreground hover:bg-primary/10"
+                  >
+                    ダッシュボード
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSignOut}
+                    className="border-border text-muted-foreground hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30"
+                  >
+                    <LogOut className="mr-1.5 h-4 w-4" />
+                    ログアウト
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Link href="/auth/signup">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-foreground hover:bg-primary/10"
+                    >
+                      <UserPlus className="mr-1.5 h-4 w-4" />
+                      アカウント登録
+                    </Button>
+                  </Link>
+                  <Link href="/auth/login">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-primary/30 text-primary hover:bg-primary/10 bg-transparent"
+                    >
+                      ログイン
+                    </Button>
+                  </Link>
+                </>
+              )}
+            </div>
           </div>
 
           {/* Hero Content */}
@@ -240,9 +295,17 @@ export function LandingPage() {
             onClick={handleEnter}
             className="bg-primary px-8 text-lg font-bold text-primary-foreground hover:bg-primary/90"
           >
-            始める
+            {user ? "ダッシュボードへ" : "始める"}
             <ArrowRight className="ml-2 h-5 w-5" />
           </Button>
+          {!user && !loading && (
+            <p className="mt-4 text-sm text-muted-foreground">
+              アカウントをお持ちでない方は{" "}
+              <Link href="/auth/signup" className="font-medium text-primary hover:underline">
+                新規登録
+              </Link>
+            </p>
+          )}
         </div>
       </section>
 
