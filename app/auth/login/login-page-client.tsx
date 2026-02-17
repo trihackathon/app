@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -16,7 +16,7 @@ export function LoginPageClient() {
   const [loading, setLoading] = useState(false);
 
   // チーム所属に応じて遷移先を振り分け
-  const navigateAfterAuth = async () => {
+  const navigateAfterAuth = useCallback(async () => {
     const teamResult = await getMyTeam();
     if (teamResult.ok) {
       const team = teamResult.data;
@@ -29,14 +29,14 @@ export function LoginPageClient() {
     } else {
       router.push("/create-team");
     }
-  };
+  }, [router]);
 
   // ログイン済みの場合はリダイレクト
   useEffect(() => {
     if (!auth.loading && auth.user) {
       navigateAfterAuth();
     }
-  }, [auth.loading, auth.user, router]);
+  }, [auth.loading, auth.user, navigateAfterAuth]);
 
   const handleEmailSignIn = async (e: React.FormEvent) => {
     e.preventDefault();

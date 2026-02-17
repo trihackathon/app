@@ -14,6 +14,8 @@ export default function SettingsPage() {
   const router = useRouter()
   const { user, team, refreshUser, refreshTeam } = useDashboard()
   const { signOut } = useAuth()
+  const { theme, setTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
 
   const [disbandVotes, setDisbandVotes] = useState<DisbandVoteResponse | null>(null)
   const [disbandLoading, setDisbandLoading] = useState(false)
@@ -90,6 +92,10 @@ export default function SettingsPage() {
       setGymLocations((prev) => prev.filter((g) => g.id !== id))
     }
   }
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     if (team?.id && (team.status === "active" || team.status === "forming")) {
@@ -488,6 +494,38 @@ export default function SettingsPage() {
           </div>
         </div>
       )}
+      {/* Theme Selection */}
+      <div className="mt-8 border-t border-border pt-6">
+        <h2 className="mb-3 text-sm font-bold text-foreground">テーマ</h2>
+        <div className="rounded-lg border border-border bg-card p-4">
+          <div className="flex gap-2">
+            <button
+              onClick={() => setTheme("light")}
+              disabled={!mounted}
+              className={`flex-1 flex items-center justify-center gap-2 rounded-lg border px-4 py-3 text-sm font-bold transition-colors ${
+                mounted && theme === "light"
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border text-muted-foreground hover:bg-card-foreground/5"
+              } disabled:opacity-50`}
+            >
+              <Sun className="h-4 w-4" />
+              ライト
+            </button>
+            <button
+              onClick={() => setTheme("dark")}
+              disabled={!mounted}
+              className={`flex-1 flex items-center justify-center gap-2 rounded-lg border px-4 py-3 text-sm font-bold transition-colors ${
+                mounted && theme === "dark"
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border text-muted-foreground hover:bg-card-foreground/5"
+              } disabled:opacity-50`}
+            >
+              <Moon className="h-4 w-4" />
+              ダーク
+            </button>
+          </div>
+        </div>
+      </div>
 
       {/* Disband Vote */}
       {team && (team.status === "active" || team.status === "forming") && (

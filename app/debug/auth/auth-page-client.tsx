@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { createMe } from "@/lib/api/endpoints";
+import Image from "next/image";
 
 type Mode = "signin" | "signup";
 
@@ -448,10 +449,12 @@ export function AuthPageClient() {
                   {avatarPreview ? (
                     <div className="flex items-center gap-4">
                       <div className="relative h-20 w-20 overflow-hidden rounded-full border-2 border-zinc-300 dark:border-zinc-600">
-                        <img
+                        <Image
                           src={avatarPreview}
                           alt="プレビュー"
-                          className="h-full w-full object-cover"
+                          fill
+                          className="object-cover"
+                          unoptimized
                         />
                       </div>
                       <button

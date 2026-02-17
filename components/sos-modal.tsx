@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { HandHelping, X, Check, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -20,15 +20,23 @@ export function SosModal({ isOpen, onClose, memberName, sosRemaining, teamMember
   const [reason, setReason] = useState("")
 
   // Build voters from team members excluding current user
-  const otherMembers = teamMembers.filter((m) => m.user_id !== currentUserId)
-  const [votes, setVotes] = useState<{ name: string; approved: boolean | null }[]>(
-    otherMembers.map((m) => ({ name: m.name, approved: null }))
+  const otherMembers = useMemo(
+    () => teamMembers.filter((m) => m.user_id !== currentUserId),
+    [teamMembers, currentUserId]
   )
+  
+  // Initialize votes based on otherMembers
+  const initialVotes = useMemo(
+    () => otherMembers.map((m) => ({ name: m.name, approved: null })),
+    [otherMembers]
+  )
+  
+  const [votes, setVotes] = useState<{ name: string; approved: boolean | null }[]>(initialVotes)
 
-  // Reset votes when members change
+  // Update votes when initialVotes reference changes
   useEffect(() => {
-    setVotes(otherMembers.map((m) => ({ name: m.name, approved: null })))
-  }, [teamMembers, currentUserId])
+    setVotes(initialVotes)
+  }, [initialVotes])
 
   if (!isOpen) return null
 

@@ -13,8 +13,9 @@ import {
   getGymLocations,
   gymCheckin,
   gymCheckout,
+  getMyActivities,
 } from "@/lib/api/endpoints"
-import type { GymLocationResponse } from "@/types/api"
+import type { GymLocationResponse, ActivityResponse } from "@/types/api"
 
 type Mode = "running" | "gym"
 
@@ -42,10 +43,12 @@ export function TrackingScreen() {
   const [isStarting, setIsStarting] = useState(false)
   const [gymLocations, setGymLocations] = useState<GymLocationResponse[]>([])
   const [selectedGym, setSelectedGym] = useState<string | null>(null)
+  const [isRestoring, setIsRestoring] = useState(true)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const watchIdRef = useRef<number | null>(null)
   const gpsBufferRef = useRef<{ latitude: number; longitude: number; accuracy: number; timestamp: string }[]>([])
   const lastSendRef = useRef<number>(0)
+  const startTimeRef = useRef<Date | null>(null)
 
   // Get goal targets from team (nullならセクション非表示にするためフォールバックしない)
   const goalDistanceKm = team?.goal?.target_distance_km ?? null
@@ -57,6 +60,75 @@ export function TrackingScreen() {
   const displayDistanceKm = mode === "running" ? weeklyDistanceKm + distance : weeklyDistanceKm
   const safeGoalKm = goalDistanceKm && goalDistanceKm > 0 ? goalDistanceKm : 1
   const safeGoalVisits = goalVisitsPerWeek && goalVisitsPerWeek > 0 ? goalVisitsPerWeek : 1
+
+  // 進行中のアクティビティを復元する
+  useEffect(() => {
+    const restoreInProgressActivity = async () => {
+      setIsRestoring(true)
+      try {
+        const result = await getMyActivities()
+        if (!result.ok) {
+          setIsRestoring(false)
+          return
+        }
+
+        // 進行中のアクティビティを探す
+        const inProgressActivity = result.data.find((activity: ActivityResponse) => 
+          activity.status === "in_progress"
+        )
+
+        if (inProgressActivity) {
+          // アクティビティが見つかったら復元
+          const activityMode = inProgressActivity.exercise_type === "gym" ? "gym" : "running"
+          setMode(activityMode)
+          setActivityId(inProgressActivity.id)
+          setIsTracking(true)
+          
+          // 経過時間を計算
+          const startTime = new Date(inProgressActivity.started_at)
+          startTimeRef.current = startTime
+          const elapsedSeconds = Math.floor((Date.now() - startTime.getTime()) / 1000)
+          setElapsed(elapsedSeconds)
+
+          // ランニングの場合は距離を復元し、GPS監視を再開
+          if (activityMode === "running") {
+            setDistance(inProgressActivity.distance_km || 0)
+            
+            // GPS監視を再開
+            watchIdRef.current = navigator.geolocation.watchPosition(
+              (position) => {
+                gpsBufferRef.current.push({
+                  latitude: position.coords.latitude,
+                  longitude: position.coords.longitude,
+                  accuracy: position.coords.accuracy,
+                  timestamp: new Date().toISOString(),
+                })
+                sendBufferedPoints(inProgressActivity.id)
+              },
+              (err) => {
+                console.error("GPS tracking error:", err)
+              },
+              { enableHighAccuracy: true, maximumAge: 3000, timeout: 10000 }
+            )
+          }
+        }
+      } catch (err) {
+        console.error("Failed to restore activity:", err)
+      } finally {
+        setIsRestoring(false)
+      }
+    }
+
+    restoreInProgressActivity()
+
+    // クリーンアップ
+    return () => {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current)
+        watchIdRef.current = null
+      }
+    }
+  }, []) // 最初のマウント時のみ実行
 
   // Load gym locations
   useEffect(() => {
@@ -71,7 +143,14 @@ export function TrackingScreen() {
   useEffect(() => {
     if (isTracking) {
       intervalRef.current = setInterval(() => {
-        setElapsed((prev) => prev + 1)
+        if (startTimeRef.current) {
+          // 開始時刻から正確に経過時間を計算
+          const elapsedSeconds = Math.floor((Date.now() - startTimeRef.current.getTime()) / 1000)
+          setElapsed(elapsedSeconds)
+        } else {
+          // フォールバック：以前の方法
+          setElapsed((prev) => prev + 1)
+        }
       }, 1000)
     } else if (intervalRef.current) {
       clearInterval(intervalRef.current)
@@ -134,6 +213,7 @@ export function TrackingScreen() {
       setElapsed(0)
       setDistance(0)
       setIsTracking(true)
+      startTimeRef.current = new Date(result.data.started_at || new Date())
 
       // Start GPS watching
       watchIdRef.current = navigator.geolocation.watchPosition(
@@ -190,6 +270,7 @@ export function TrackingScreen() {
 
     setIsTracking(false)
     setActivityId(null)
+    startTimeRef.current = null
     refreshActivities()
     refreshStatus()
     refreshEvaluation()
@@ -229,6 +310,7 @@ export function TrackingScreen() {
       setActivityId(result.data.id)
       setElapsed(0)
       setIsTracking(true)
+      startTimeRef.current = new Date(result.data.started_at || new Date())
     } catch {
       setError("位置情報の取得に失敗しました")
     } finally {
@@ -259,6 +341,7 @@ export function TrackingScreen() {
 
     setIsTracking(false)
     setActivityId(null)
+    startTimeRef.current = null
     refreshActivities()
     refreshStatus()
     refreshEvaluation()
@@ -277,6 +360,13 @@ export function TrackingScreen() {
   return (
     <div className="mx-auto max-w-md px-4 pb-24 pt-6">
       <h1 className="mb-6 text-xl font-black text-foreground">運動を記録</h1>
+
+      {isRestoring && (
+        <div className="mb-4 rounded-lg bg-primary/10 p-3 text-sm text-primary flex items-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          進行中のアクティビティを確認しています...
+        </div>
+      )}
 
       {error && (
         <div className="mb-4 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
@@ -485,7 +575,7 @@ export function TrackingScreen() {
       <Button
         size="lg"
         onClick={handleStartStop}
-        disabled={isStarting}
+        disabled={isStarting || isRestoring}
         className={cn(
           "w-full py-6 text-lg font-black",
           isTracking

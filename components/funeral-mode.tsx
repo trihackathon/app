@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { ArrowRight, Heart } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { RopeVisual } from "@/components/rope-visual"
@@ -19,6 +19,7 @@ export function FuneralMode({ onRetry, onBackToLanding }: FuneralModeProps) {
   const [teamStatus, setTeamStatus] = useState<TeamStatusResponse | null>(null)
   const [activities, setActivities] = useState<ActivityResponse[]>([])
   const [loading, setLoading] = useState(true)
+  const [currentTime] = useState(() => Date.now())
 
   useEffect(() => {
     async function loadData() {
@@ -43,10 +44,12 @@ export function FuneralMode({ onRetry, onBackToLanding }: FuneralModeProps) {
 
   // Calculate stats from real data
   const teamName = team?.name ?? "チーム"
-  const startedAt = team?.started_at ? new Date(team.started_at) : null
-  const totalDays = startedAt
-    ? Math.max(1, Math.floor((Date.now() - startedAt.getTime()) / (1000 * 60 * 60 * 24)))
-    : 0
+  const startedAtTime = team?.started_at
+  const totalDays = useMemo(() => {
+    if (!startedAtTime) return 0
+    const startedAt = new Date(startedAtTime).getTime()
+    return Math.max(1, Math.floor((currentTime - startedAt) / (1000 * 60 * 60 * 24)))
+  }, [startedAtTime, currentTime])
   const totalDistanceKm = activities
     .filter((a) => a.exercise_type === "running" && a.distance_km)
     .reduce((sum, a) => sum + (a.distance_km ?? 0), 0)

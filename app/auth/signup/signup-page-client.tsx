@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useRouter } from "next/navigation";
 import { createMe } from "@/lib/api/endpoints";
 import Link from "next/link";
+import Image from "next/image";
 import { GRADIENTS, FOCUS_STYLES, LINK_STYLES, INDICATOR_STYLES } from "@/lib/constants/colors";
 
 export function SignupPageClient() {
@@ -385,10 +386,12 @@ export function SignupPageClient() {
                 {avatarPreview ? (
                   <div className="flex flex-col items-center gap-3">
                     <div className="relative h-24 w-24 overflow-hidden rounded-full border-4 border-zinc-300 dark:border-zinc-600">
-                      <img
+                      <Image
                         src={avatarPreview}
                         alt="プレビュー"
-                        className="h-full w-full object-cover"
+                        fill
+                        className="object-cover"
+                        unoptimized
                       />
                     </div>
                     <button
