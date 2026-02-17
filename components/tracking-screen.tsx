@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { Play, Square, MapPin, Timer, Footprints, Dumbbell, Loader2 } from "lucide-react"
+import { Play, Square, MapPin, Timer, Footprints, Dumbbell, Loader2, Settings } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useDashboard } from "@/components/dashboard-context"
@@ -18,6 +19,7 @@ import type { GymLocationResponse } from "@/types/api"
 type Mode = "running" | "gym"
 
 export function TrackingScreen() {
+  const router = useRouter()
   const { user, team, currentEvaluation, refreshActivities, refreshStatus, refreshEvaluation } = useDashboard()
 
   // 今週の累積データ（自分の進捗）
@@ -298,19 +300,34 @@ export function TrackingScreen() {
       </div>
 
       {/* Gym Location Selector */}
-      {mode === "gym" && !isTracking && gymLocations.length > 0 && (
-        <div className="mb-6 rounded-xl border border-border bg-card p-4">
-          <label className="mb-2 block text-xs font-bold text-foreground">ジムを選択</label>
-          <select
-            value={selectedGym || ""}
-            onChange={(e) => setSelectedGym(e.target.value)}
-            className="w-full rounded-lg border border-border bg-secondary p-2 text-sm text-foreground"
-          >
-            {gymLocations.map((gym) => (
-              <option key={gym.id} value={gym.id}>{gym.name}</option>
-            ))}
-          </select>
-        </div>
+      {mode === "gym" && !isTracking && (
+        gymLocations.length > 0 ? (
+          <div className="mb-6 rounded-xl border border-border bg-card p-4">
+            <label className="mb-2 block text-xs font-bold text-foreground">ジムを選択</label>
+            <select
+              value={selectedGym || ""}
+              onChange={(e) => setSelectedGym(e.target.value)}
+              className="w-full rounded-lg border border-border bg-secondary p-2 text-sm text-foreground"
+            >
+              {gymLocations.map((gym) => (
+                <option key={gym.id} value={gym.id}>{gym.name}</option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <div className="mb-6 rounded-xl border border-border bg-card p-4 text-center">
+            <p className="mb-3 text-sm text-muted-foreground">ジムが登録されていません。設定画面から登録してください。</p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.push("/dashboard/settings")}
+              className="gap-1.5"
+            >
+              <Settings className="h-4 w-4" />
+              設定画面へ
+            </Button>
+          </div>
+        )
       )}
 
       {/* Map Area */}

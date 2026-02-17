@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, LogOut, AlertTriangle } from "lucide-react"
+import { ArrowLeft, LogOut, AlertTriangle, Trash2, MapPin, Plus } from "lucide-react"
 import { useDashboard } from "@/components/dashboard-context"
 import { useAuth } from "@/hooks/use-auth"
-import { updateMe, getDisbandVotes, voteDisband, cancelDisbandVote } from "@/lib/api/endpoints"
-import type { DisbandVoteResponse } from "@/types/api"
+import { updateMe, getDisbandVotes, voteDisband, cancelDisbandVote, getGymLocations, createGymLocation, deleteGymLocation } from "@/lib/api/endpoints"
+import type { DisbandVoteResponse, GymLocationResponse } from "@/types/api"
 import { MemberAvatar } from "@/components/member-avatar"
 import { Spinner } from "@/components/ui/spinner"
 
@@ -20,6 +20,76 @@ export default function SettingsPage() {
   const [disbandConfirmOpen, setDisbandConfirmOpen] = useState(false)
 
   const hasVoted = disbandVotes?.voted_users?.includes(user?.id ?? "") ?? false
+
+  // Gym management state
+  const isGymTeam = team?.exercise_type === "gym"
+  const [gymLocations, setGymLocations] = useState<GymLocationResponse[]>([])
+  const [gymName, setGymName] = useState("")
+  const [gymLat, setGymLat] = useState("")
+  const [gymLng, setGymLng] = useState("")
+  const [gymRadius, setGymRadius] = useState("100")
+  const [gymLoading, setGymLoading] = useState(false)
+  const [gymGpsLoading, setGymGpsLoading] = useState(false)
+  const [gymError, setGymError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (isGymTeam) {
+      getGymLocations().then((result) => {
+        if (result.ok) setGymLocations(result.data)
+      })
+    }
+  }, [isGymTeam])
+
+  const handleGetGPS = async () => {
+    setGymGpsLoading(true)
+    setGymError(null)
+    try {
+      const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
+        navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true })
+      )
+      setGymLat(String(pos.coords.latitude))
+      setGymLng(String(pos.coords.longitude))
+    } catch {
+      setGymError("位置情報の取得に失敗しました")
+    } finally {
+      setGymGpsLoading(false)
+    }
+  }
+
+  const handleAddGym = async () => {
+    if (!gymName.trim()) { setGymError("名前を入力してください"); return }
+    if (!gymLat || !gymLng) { setGymError("位置情報を取得してください"); return }
+    setGymLoading(true)
+    setGymError(null)
+    try {
+      const result = await createGymLocation({
+        name: gymName.trim(),
+        latitude: Number(gymLat),
+        longitude: Number(gymLng),
+        radius_m: Number(gymRadius) || 100,
+      })
+      if (result.ok) {
+        setGymLocations((prev) => [...prev, result.data])
+        setGymName("")
+        setGymLat("")
+        setGymLng("")
+        setGymRadius("100")
+      } else {
+        setGymError("ジムの追加に失敗しました")
+      }
+    } catch {
+      setGymError("ジムの追加に失敗しました")
+    } finally {
+      setGymLoading(false)
+    }
+  }
+
+  const handleDeleteGym = async (id: string) => {
+    const result = await deleteGymLocation(id)
+    if (result.ok) {
+      setGymLocations((prev) => prev.filter((g) => g.id !== id))
+    }
+  }
 
   useEffect(() => {
     if (team?.id && (team.status === "active" || team.status === "forming")) {
@@ -318,6 +388,106 @@ export default function SettingsPage() {
           {loading ? <><Spinner size="sm" className="border-primary-foreground/30 border-t-primary-foreground" /> 保存中...</> : "保存する"}
         </button>
       </form>
+
+      {/* Gym Management */}
+      {isGymTeam && (
+        <div className="mt-8 border-t border-border pt-6">
+          <h2 className="mb-3 text-sm font-bold text-foreground">ジム管理</h2>
+
+          {gymError && (
+            <div className="mb-3 rounded-lg bg-destructive/10 border border-destructive/20 p-3">
+              <p className="text-sm text-destructive">{gymError}</p>
+            </div>
+          )}
+
+          {/* Registered gyms */}
+          {gymLocations.length > 0 && (
+            <div className="mb-4 flex flex-col gap-2">
+              {gymLocations.map((gym) => (
+                <div key={gym.id} className="flex items-center justify-between rounded-lg border border-border bg-card p-3">
+                  <div>
+                    <p className="text-sm font-bold text-foreground">{gym.name}</p>
+                    <p className="text-xs text-muted-foreground">半径 {gym.radius_m}m</p>
+                  </div>
+                  <button
+                    onClick={() => handleDeleteGym(gym.id)}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                    aria-label="削除"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Add gym form */}
+          <div className="rounded-lg border border-border bg-card p-4">
+            <p className="mb-3 text-xs font-bold text-foreground">ジムを追加</p>
+            <div className="flex flex-col gap-3">
+              <input
+                type="text"
+                value={gymName}
+                onChange={(e) => setGymName(e.target.value)}
+                placeholder="ジム名"
+                className="w-full rounded-lg border border-border bg-secondary px-4 py-2.5 text-sm text-foreground transition-colors focus:border-primary focus:outline-none"
+              />
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleGetGPS}
+                  disabled={gymGpsLoading}
+                  className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2.5 text-sm font-bold text-foreground transition-colors hover:bg-card disabled:opacity-50"
+                >
+                  {gymGpsLoading ? <Spinner size="sm" /> : <MapPin className="h-4 w-4" />}
+                  現在地を取得
+                </button>
+                {gymLat && gymLng && (
+                  <span className="flex items-center text-xs text-accent">取得済み</span>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="number"
+                  value={gymLat}
+                  onChange={(e) => setGymLat(e.target.value)}
+                  placeholder="緯度"
+                  step="any"
+                  className="w-full rounded-lg border border-border bg-secondary px-3 py-2.5 text-sm text-foreground transition-colors focus:border-primary focus:outline-none"
+                />
+                <input
+                  type="number"
+                  value={gymLng}
+                  onChange={(e) => setGymLng(e.target.value)}
+                  placeholder="経度"
+                  step="any"
+                  className="w-full rounded-lg border border-border bg-secondary px-3 py-2.5 text-sm text-foreground transition-colors focus:border-primary focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-muted-foreground">半径 (m)</label>
+                <input
+                  type="number"
+                  value={gymRadius}
+                  onChange={(e) => setGymRadius(e.target.value)}
+                  placeholder="100"
+                  min="10"
+                  max="1000"
+                  className="w-full rounded-lg border border-border bg-secondary px-3 py-2.5 text-sm text-foreground transition-colors focus:border-primary focus:outline-none"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleAddGym}
+                disabled={gymLoading}
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+              >
+                {gymLoading ? <><Spinner size="sm" className="border-primary-foreground/30 border-t-primary-foreground" /> 追加中...</> : <><Plus className="h-4 w-4" /> 追加する</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Disband Vote */}
       {team && (team.status === "active" || team.status === "forming") && (
