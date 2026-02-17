@@ -5,6 +5,7 @@ import { BottomNav } from "@/components/bottom-nav"
 import { SosModal } from "@/components/sos-modal"
 import { DashboardProvider, useDashboard } from "@/components/dashboard-context"
 import { AuthGuard } from "@/components/auth-guard"
+import { Spinner } from "@/components/ui/spinner"
 
 function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const { sosOpen, setSosOpen, unreadCount, team, user, isLoading } = useDashboard()
@@ -12,7 +13,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="text-muted-foreground">読み込み中...</div>
+        <Spinner size="lg" />
       </div>
     )
   }

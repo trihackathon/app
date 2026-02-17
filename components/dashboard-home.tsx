@@ -4,6 +4,7 @@ import { Timer, TrendingUp } from "lucide-react"
 import { RopeVisual } from "@/components/rope-visual"
 import { cn } from "@/lib/utils"
 import { MemberAvatar } from "@/components/member-avatar"
+import { Spinner } from "@/components/ui/spinner"
 import type { TeamResponse, TeamStatusResponse, MemberProgress } from "@/types/api"
 
 interface DashboardHomeProps {
@@ -44,7 +45,7 @@ export function DashboardHome({ team, teamStatus, countdown }: DashboardHomeProp
   if (!team) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
-        <div className="text-muted-foreground">チーム情報を読み込み中...</div>
+        <Spinner size="lg" />
       </div>
     )
   }

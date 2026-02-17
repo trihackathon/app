@@ -7,6 +7,7 @@ import { useDashboard } from "@/components/dashboard-context"
 import { useAuth } from "@/hooks/use-auth"
 import { updateMe } from "@/lib/api/endpoints"
 import { MemberAvatar } from "@/components/member-avatar"
+import { Spinner } from "@/components/ui/spinner"
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -266,9 +267,9 @@ export default function SettingsPage() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full rounded-lg bg-primary px-4 py-3 text-sm font-bold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-bold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {loading ? "保存中..." : "保存する"}
+          {loading ? <><Spinner size="sm" className="border-primary-foreground/30 border-t-primary-foreground" /> 保存中...</> : "保存する"}
         </button>
       </form>
 
