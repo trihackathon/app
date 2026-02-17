@@ -5,7 +5,8 @@ import { Copy, Check, Users, Footprints, Dumbbell, ArrowRight, ArrowLeft } from 
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { RopeVisual } from "@/components/rope-visual"
-import { createTeam, createGoal, createInvite, getTeam, joinTeam } from "@/lib/api/endpoints"
+import { createTeam, createGoal, createInvite, getTeam, getMyTeam, joinTeam, cleanupDisbandedTeams, getUserTeamStatus } from "@/lib/api/endpoints"
+import { useAuth } from "@/hooks/use-auth"
 
 interface TeamCreationProps {
   onComplete: () => void
@@ -16,6 +17,7 @@ type Step = "mode" | "goal" | "invite" | "waiting"
 type CreateMode = "create" | "join"
 
 export function TeamCreation({ onComplete, onBack }: TeamCreationProps) {
+  const { user } = useAuth()
   const [createMode, setCreateMode] = useState<CreateMode | null>(null)
   const [step, setStep] = useState<Step>("mode")
   const [exerciseType, setExerciseType] = useState<"running" | "gym" | null>(null)
@@ -30,7 +32,57 @@ export function TeamCreation({ onComplete, onBack }: TeamCreationProps) {
   const [memberCount, setMemberCount] = useState(1)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [cleanupLoading, setCleanupLoading] = useState(false)
+  const [showCleanupButton, setShowCleanupButton] = useState(false)
+  const [showDebugInfo, setShowDebugInfo] = useState(false)
+  const [debugInfo, setDebugInfo] = useState<any>(null)
+  const [resumingTeam, setResumingTeam] = useState(false)
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // 既存の forming チーム（3人未満）があれば、そのチームの続きから再開
+  useEffect(() => {
+    const checkExistingTeam = async () => {
+      setResumingTeam(true)
+      try {
+        const teamResult = await getMyTeam()
+        if (teamResult.ok) {
+          const team = teamResult.data
+          // forming 状態で3人未満の場合は、waiting ステップから再開
+          if (team.status === "forming" && team.members.length < 3) {
+            setTeamId(team.id)
+            setTeamName(team.name)
+            setExerciseType(team.exercise_type as "running" | "gym")
+            setMemberCount(team.members.length)
+            setCreateMode("create")
+            // 招待コードを取得（最新のものを使用）
+            const inviteResult = await createInvite(team.id)
+            if (inviteResult.ok) {
+              setInviteCode(inviteResult.data.code)
+            }
+            setStep("waiting")
+            // メンバー数のポーリングを開始
+            pollingRef.current = setInterval(async () => {
+              const result = await getTeam(team.id)
+              if (result.ok) {
+                const count = result.data.members.length
+                setMemberCount(count)
+                if (count >= 3) {
+                  if (pollingRef.current) clearInterval(pollingRef.current)
+                  setTimeout(onComplete, 1500)
+                }
+              }
+            }, 3000)
+          }
+        }
+      } catch (error) {
+        console.error("既存チームの確認に失敗:", error)
+      } finally {
+        setResumingTeam(false)
+      }
+    }
+
+    checkExistingTeam()
+  }, [])
 
   // Cleanup polling on unmount
   useEffect(() => {
@@ -43,6 +95,41 @@ export function TeamCreation({ onComplete, onBack }: TeamCreationProps) {
     navigator.clipboard.writeText(inviteCode).catch(() => {})
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  const handleCleanup = async () => {
+    setCleanupLoading(true)
+    try {
+      const result = await cleanupDisbandedTeams()
+      if (result.ok) {
+        setError(null)
+        setShowCleanupButton(false)
+        alert(`クリーンアップ完了:\n- 解散済みチーム: ${result.data.disbanded_teams}個\n- 削除されたメンバー: ${result.data.deleted_members}件\n- 削除された投票: ${result.data.deleted_votes}件`)
+        // クリーンアップ後にデバッグ情報を更新
+        if (user?.uid) {
+          await handleShowDebugInfo()
+        }
+      } else {
+        setError("クリーンアップに失敗しました")
+      }
+    } catch {
+      setError("クリーンアップ中にエラーが発生しました")
+    } finally {
+      setCleanupLoading(false)
+    }
+  }
+
+  const handleShowDebugInfo = async () => {
+    if (!user?.uid) return
+    try {
+      const result = await getUserTeamStatus(user.uid)
+      if (result.ok) {
+        setDebugInfo(result.data)
+        setShowDebugInfo(true)
+      }
+    } catch (error) {
+      console.error("デバッグ情報の取得に失敗:", error)
+    }
   }
 
   const handleCreateAndInvite = async () => {
@@ -63,10 +150,16 @@ export function TeamCreation({ onComplete, onBack }: TeamCreationProps) {
       })
 
       if (!teamResult.ok) {
-        setError("チーム作成に失敗しました")
+        if (teamResult.error?.error === "already_in_team") {
+          setError("既にアクティブなチームに所属しています。解散済みのチームがある場合はクリーンアップしてください。")
+          setShowCleanupButton(true)
+        } else {
+          setError("チーム作成に失敗しました")
+        }
         setLoading(false)
         return
       }
+      setShowCleanupButton(false)
 
       const newTeamId = teamResult.data.id
       setTeamId(newTeamId)
@@ -163,6 +256,16 @@ export function TeamCreation({ onComplete, onBack }: TeamCreationProps) {
     }
   }
 
+  // チーム再開中のローディング画面
+  if (resumingTeam) {
+    return (
+      <div className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center px-4 py-8">
+        <div className="mb-4 h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+        <p className="text-sm text-muted-foreground">既存のチーム情報を確認中...</p>
+      </div>
+    )
+  }
+
   // Mode selection: create vs join
   if (createMode === null) {
     return (
@@ -181,8 +284,57 @@ export function TeamCreation({ onComplete, onBack }: TeamCreationProps) {
         </p>
 
         {error && (
-          <div className="mb-4 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
-            {error}
+          <div className="mb-4 rounded-lg bg-destructive/10 p-3">
+            <p className="text-sm text-destructive">{error}</p>
+            <div className="mt-2 flex gap-2">
+              {showCleanupButton && (
+                <button
+                  onClick={handleCleanup}
+                  disabled={cleanupLoading}
+                  className="rounded-lg bg-destructive px-3 py-1.5 text-xs text-white hover:bg-destructive/90 disabled:opacity-50"
+                >
+                  {cleanupLoading ? "クリーンアップ中..." : "解散済みチームをクリーンアップ"}
+                </button>
+              )}
+              <button
+                onClick={handleShowDebugInfo}
+                className="rounded-lg border border-destructive px-3 py-1.5 text-xs text-destructive hover:bg-destructive/10"
+              >
+                デバッグ情報を表示
+              </button>
+            </div>
+          </div>
+        )}
+
+        {showDebugInfo && debugInfo && (
+          <div className="mb-4 rounded-lg border border-border bg-card p-4 text-xs">
+            <div className="mb-2 flex items-center justify-between">
+              <h3 className="font-bold text-foreground">デバッグ情報</h3>
+              <button
+                onClick={() => setShowDebugInfo(false)}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="space-y-1 text-muted-foreground">
+              <p>ユーザーID: {debugInfo.user_id}</p>
+              <p>総メンバーシップ数: {debugInfo.total_memberships}</p>
+              <p>アクティブなメンバーシップ数: {debugInfo.active_memberships}</p>
+              <p>新しいチームを作成可能: {debugInfo.can_create_new_team ? "はい" : "いいえ"}</p>
+              {debugInfo.all_memberships.length > 0 && (
+                <div className="mt-2">
+                  <p className="font-bold text-foreground">所属チーム一覧:</p>
+                  {debugInfo.all_memberships.map((m: any, i: number) => (
+                    <div key={i} className="mt-1 rounded bg-secondary p-2">
+                      <p>チーム: {m.team_name} ({m.team_status})</p>
+                      <p>役割: {m.role}</p>
+                      <p>参加日時: {m.joined_at}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -300,8 +452,17 @@ export function TeamCreation({ onComplete, onBack }: TeamCreationProps) {
       </div>
 
       {error && (
-        <div className="mb-4 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
-          {error}
+        <div className="mb-4 rounded-lg bg-destructive/10 p-3">
+          <p className="text-sm text-destructive">{error}</p>
+          {showCleanupButton && (
+            <button
+              onClick={handleCleanup}
+              disabled={cleanupLoading}
+              className="mt-2 rounded-lg bg-destructive px-3 py-1.5 text-xs text-white hover:bg-destructive/90 disabled:opacity-50"
+            >
+              {cleanupLoading ? "クリーンアップ中..." : "解散済みチームをクリーンアップ"}
+            </button>
+          )}
         </div>
       )}
 
@@ -511,7 +672,7 @@ export function TeamCreation({ onComplete, onBack }: TeamCreationProps) {
       )}
 
       {step === "waiting" && (
-        <div className="flex flex-1 flex-col items-center justify-center text-center">
+        <div className="flex flex-1 flex-col items-center justify-center text-center px-4">
           <div className="mb-8">
             <RopeVisual hp={memberCount * 33} size={160} />
           </div>
@@ -520,7 +681,28 @@ export function TeamCreation({ onComplete, onBack }: TeamCreationProps) {
             メンバー参加中...
           </h1>
 
-          <div className="mb-8 w-full">
+          {inviteCode && (
+            <div className="mb-6 rounded-xl border border-border bg-card p-4 max-w-md w-full">
+              <div className="mb-2 text-center text-xs text-muted-foreground">招待コード</div>
+              <div className="flex items-center justify-center gap-3">
+                <code className="text-xl font-black tracking-widest text-primary">
+                  {inviteCode}
+                </code>
+                <button
+                  onClick={handleCopy}
+                  className="rounded-lg bg-secondary p-2 text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label="コピー"
+                >
+                  {copied ? <Check className="h-4 w-4 text-accent" /> : <Copy className="h-4 w-4" />}
+                </button>
+              </div>
+              <p className="mt-2 text-center text-xs text-muted-foreground">
+                このコードを共有してください
+              </p>
+            </div>
+          )}
+
+          <div className="mb-8 w-full max-w-md">
             <div className="flex items-center justify-center gap-2 text-lg font-bold text-foreground">
               <Users className="h-5 w-5 text-primary" />
               {memberCount} / 3 参加済み

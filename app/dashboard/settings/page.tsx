@@ -2,17 +2,63 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, LogOut } from "lucide-react"
+import { ArrowLeft, LogOut, AlertTriangle } from "lucide-react"
 import { useDashboard } from "@/components/dashboard-context"
 import { useAuth } from "@/hooks/use-auth"
-import { updateMe } from "@/lib/api/endpoints"
+import { updateMe, getDisbandVotes, voteDisband, cancelDisbandVote } from "@/lib/api/endpoints"
+import type { DisbandVoteResponse } from "@/types/api"
 import { MemberAvatar } from "@/components/member-avatar"
 import { Spinner } from "@/components/ui/spinner"
 
 export default function SettingsPage() {
   const router = useRouter()
-  const { user, refreshUser } = useDashboard()
+  const { user, team, refreshUser, refreshTeam } = useDashboard()
   const { signOut } = useAuth()
+
+  const [disbandVotes, setDisbandVotes] = useState<DisbandVoteResponse | null>(null)
+  const [disbandLoading, setDisbandLoading] = useState(false)
+  const [disbandConfirmOpen, setDisbandConfirmOpen] = useState(false)
+
+  const hasVoted = disbandVotes?.voted_users?.includes(user?.id ?? "") ?? false
+
+  useEffect(() => {
+    if (team?.id && (team.status === "active" || team.status === "forming")) {
+      getDisbandVotes(team.id).then((result) => {
+        if (result.ok) setDisbandVotes(result.data)
+      })
+    }
+  }, [team?.id, team?.status])
+
+  const handleVoteDisband = async () => {
+    if (!team?.id) return
+    setDisbandLoading(true)
+    try {
+      const result = await voteDisband(team.id)
+      if (result.ok) {
+        setDisbandVotes(result.data)
+        if (result.data.disbanded) {
+          await refreshTeam()
+          router.push("/funeral")
+        }
+      }
+    } finally {
+      setDisbandLoading(false)
+      setDisbandConfirmOpen(false)
+    }
+  }
+
+  const handleCancelVote = async () => {
+    if (!team?.id) return
+    setDisbandLoading(true)
+    try {
+      const result = await cancelDisbandVote(team.id)
+      if (result.ok) {
+        setDisbandVotes(result.data)
+      }
+    } finally {
+      setDisbandLoading(false)
+    }
+  }
 
   const [name, setName] = useState("")
   const [age, setAge] = useState("")
@@ -272,6 +318,79 @@ export default function SettingsPage() {
           {loading ? <><Spinner size="sm" className="border-primary-foreground/30 border-t-primary-foreground" /> 保存中...</> : "保存する"}
         </button>
       </form>
+
+      {/* Disband Vote */}
+      {team && (team.status === "active" || team.status === "forming") && (
+        <div className="mt-8 border-t border-border pt-6">
+          <h2 className="mb-3 text-sm font-bold text-foreground">チーム解散</h2>
+          <div className="rounded-lg border border-border bg-card p-4">
+            {disbandVotes && (
+              <div className="mb-3">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">投票状況</span>
+                  <span className="font-bold text-foreground">
+                    {disbandVotes.voted_count} / {disbandVotes.total_count}
+                  </span>
+                </div>
+                <div className="mt-2 h-2 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-destructive transition-all"
+                    style={{
+                      width: `${disbandVotes.total_count > 0 ? (disbandVotes.voted_count / disbandVotes.total_count) * 100 : 0}%`,
+                    }}
+                  />
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  全員が投票するとチームは解散されます
+                </p>
+              </div>
+            )}
+
+            {hasVoted ? (
+              <button
+                onClick={handleCancelVote}
+                disabled={disbandLoading}
+                className="flex w-full items-center justify-center gap-2 rounded-lg border border-border px-4 py-3 text-sm font-bold text-muted-foreground transition-colors hover:bg-card disabled:opacity-50"
+              >
+                {disbandLoading ? (
+                  <><Spinner size="sm" /> 処理中...</>
+                ) : (
+                  "投票を取り消す"
+                )}
+              </button>
+            ) : !disbandConfirmOpen ? (
+              <button
+                onClick={() => setDisbandConfirmOpen(true)}
+                className="flex w-full items-center justify-center gap-2 rounded-lg border border-destructive/20 px-4 py-3 text-sm font-bold text-destructive transition-colors hover:bg-destructive/10"
+              >
+                <AlertTriangle className="h-4 w-4" />
+                解散に投票する
+              </button>
+            ) : (
+              <div className="flex flex-col gap-2">
+                <p className="text-xs text-destructive font-bold text-center">
+                  本当に解散に投票しますか？
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setDisbandConfirmOpen(false)}
+                    className="flex-1 rounded-lg border border-border px-4 py-3 text-sm font-bold text-muted-foreground transition-colors hover:bg-card"
+                  >
+                    キャンセル
+                  </button>
+                  <button
+                    onClick={handleVoteDisband}
+                    disabled={disbandLoading}
+                    className="flex-1 rounded-lg bg-destructive px-4 py-3 text-sm font-bold text-destructive-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+                  >
+                    {disbandLoading ? "処理中..." : "投票する"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Logout */}
       <div className="mt-8 border-t border-border pt-6">

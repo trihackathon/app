@@ -25,6 +25,7 @@ import type {
   WeeklyEvaluationResponse,
   CurrentWeekEvaluationResponse,
   PredictionResponse,
+  DisbandVoteResponse,
 } from "@/types/api";
 
 // Debug
@@ -34,6 +35,33 @@ export function healthCheck() {
 
 export function debugToken(uid: string) {
   return get<DebugTokenResponse>(`/debug/token?uid=${encodeURIComponent(uid)}`);
+}
+
+export function cleanupDisbandedTeams() {
+  return post<{
+    message: string;
+    disbanded_teams: number;
+    deleted_votes: number;
+    deleted_members: number;
+    team_ids: string[];
+  }>("/debug/cleanup-disbanded-teams");
+}
+
+export function getUserTeamStatus(uid: string) {
+  return get<{
+    user_id: string;
+    total_memberships: number;
+    active_memberships: number;
+    all_memberships: Array<{
+      member_id: string;
+      team_id: string;
+      team_name: string;
+      team_status: string;
+      role: string;
+      joined_at: string;
+    }>;
+    can_create_new_team: boolean;
+  }>(`/debug/user-team-status?uid=${encodeURIComponent(uid)}`);
 }
 
 // User
@@ -107,6 +135,19 @@ export function createInvite(teamId: string) {
 
 export function joinTeam(body: JoinTeamRequest) {
   return post<JoinTeamResponse>("/api/teams/join", body);
+}
+
+// Disband Vote
+export function voteDisband(teamId: string) {
+  return post<DisbandVoteResponse>(`/api/teams/${teamId}/disband-vote`);
+}
+
+export function cancelDisbandVote(teamId: string) {
+  return del<DisbandVoteResponse>(`/api/teams/${teamId}/disband-vote`);
+}
+
+export function getDisbandVotes(teamId: string) {
+  return get<DisbandVoteResponse>(`/api/teams/${teamId}/disband-votes`);
 }
 
 // Goal

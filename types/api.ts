@@ -215,6 +215,15 @@ export type PredictionResponse = {
   recommendation: string;
 };
 
+// Disband Vote
+export type DisbandVoteResponse = {
+  team_id: string;
+  total_count: number;
+  voted_count: number;
+  voted_users: string[];
+  disbanded: boolean;
+};
+
 // API Request types
 
 export type CreateUserRequest = {
