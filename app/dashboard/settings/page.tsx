@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, LogOut, AlertTriangle, Trash2, MapPin, Plus } from "lucide-react"
+import { ArrowLeft, LogOut, AlertTriangle, Trash2, MapPin, Plus, Sun, Moon } from "lucide-react"
+import { useTheme } from "next-themes"
 import { useDashboard } from "@/components/dashboard-context"
 import { useAuth } from "@/hooks/use-auth"
 import { updateMe, getDisbandVotes, voteDisband, cancelDisbandVote, getGymLocations, createGymLocation, deleteGymLocation } from "@/lib/api/endpoints"
