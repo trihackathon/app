@@ -287,25 +287,31 @@ function RiskTab() {
           <div className="flex flex-col gap-3">
             {dailyStats
               .filter((d) => d.is_danger)
-              .map((day) => (
-                <div key={day.day_of_week} className="flex items-center gap-3">
-                  <div className="w-16 text-xs font-bold text-foreground">{day.day_name}</div>
-                  <div className="flex-1">
-                    <div className="h-2 overflow-hidden rounded-full bg-secondary">
-                      <div
-                        className={cn(
-                          "h-full rounded-full",
-                          day.success_rate < 40 ? "bg-destructive" : day.success_rate < 60 ? "bg-warning" : "bg-accent"
-                        )}
-                        style={{ width: `${100 - day.success_rate}%` }}
-                      />
+              .map((day) => {
+                // success_rate は 0.0～1.0 の範囲なので100倍する
+                const successPercent = Math.round(day.success_rate * 100)
+                const failurePercent = day.activity_count === 0 ? 0 : 100 - successPercent
+                
+                return (
+                  <div key={day.day_of_week} className="flex items-center gap-3">
+                    <div className="w-16 text-xs font-bold text-foreground">{day.day_name}</div>
+                    <div className="flex-1">
+                      <div className="h-2 overflow-hidden rounded-full bg-secondary">
+                        <div
+                          className={cn(
+                            "h-full rounded-full",
+                            successPercent < 40 ? "bg-destructive" : successPercent < 60 ? "bg-warning" : "bg-accent"
+                          )}
+                          style={{ width: `${failurePercent}%` }}
+                        />
+                      </div>
+                    </div>
+                    <div className="w-8 text-right text-xs font-bold text-foreground">
+                      {failurePercent}%
                     </div>
                   </div>
-                  <div className="w-8 text-right text-xs font-bold text-foreground">
-                    {100 - Math.round(day.success_rate)}%
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             {dailyStats.filter((d) => d.is_danger).length === 0 && (
               <p className="text-sm text-muted-foreground">危険な曜日はありません</p>
             )}
