@@ -15,6 +15,7 @@ import {
 import { Heart, TrendingUp, AlertTriangle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useDashboard } from "@/components/dashboard-context"
+import { MemberAvatar } from "@/components/member-avatar"
 
 type Tab = "hp" | "activity" | "risk"
 
@@ -242,9 +243,11 @@ function ActivityTab() {
             className="flex items-center justify-between rounded-xl border border-border bg-card p-4"
           >
             <div className="flex items-center gap-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-                {member.user_name.charAt(0)}
-              </div>
+              <MemberAvatar
+                src={member.avatar_url}
+                name={member.user_name}
+                size="sm"
+              />
               <div>
                 <div className="text-sm font-bold text-foreground">{member.user_name}</div>
                 <div className="text-[10px] text-muted-foreground">

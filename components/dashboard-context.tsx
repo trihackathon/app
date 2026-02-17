@@ -25,6 +25,7 @@ interface DashboardContextType {
   unreadCount: number
   isLoading: boolean
   error: string | null
+  refreshUser: () => Promise<void>
   refreshTeam: () => Promise<void>
   refreshActivities: () => Promise<void>
   refreshStatus: () => Promise<void>
@@ -67,6 +68,13 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     const interval = setInterval(updateCountdown, 1000)
     return () => clearInterval(interval)
   }, [currentEvaluation?.week_end])
+
+  const refreshUser = useCallback(async () => {
+    const result = await getMe()
+    if (result.ok) {
+      setUser(result.data)
+    }
+  }, [])
 
   const refreshTeam = useCallback(async () => {
     const result = await getMyTeam()
@@ -170,6 +178,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         unreadCount,
         isLoading,
         error,
+        refreshUser,
         refreshTeam,
         refreshActivities,
         refreshStatus,

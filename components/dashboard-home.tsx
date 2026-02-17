@@ -3,6 +3,7 @@
 import { Timer, TrendingUp } from "lucide-react"
 import { RopeVisual } from "@/components/rope-visual"
 import { cn } from "@/lib/utils"
+import { MemberAvatar } from "@/components/member-avatar"
 import type { TeamResponse, TeamStatusResponse, MemberProgress } from "@/types/api"
 
 interface DashboardHomeProps {
@@ -133,18 +134,19 @@ export function DashboardHome({ team, teamStatus, countdown }: DashboardHomeProp
                 )}
               >
                 {/* Avatar */}
-                <div
+                <MemberAvatar
+                  src={member.avatar_url}
+                  name={member.user_name}
+                  size="md"
                   className={cn(
-                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold",
+                    "shrink-0",
                     status === "synced"
-                      ? "bg-accent/20 text-accent"
+                      ? "[&>span]:bg-accent/20 [&>span]:text-accent"
                       : status === "pending"
-                        ? "bg-warning/20 text-warning"
-                        : "bg-destructive/20 text-destructive"
+                        ? "[&>span]:bg-warning/20 [&>span]:text-warning"
+                        : "[&>span]:bg-destructive/20 [&>span]:text-destructive"
                   )}
-                >
-                  {member.user_name.charAt(0)}
-                </div>
+                />
 
                 {/* Info */}
                 <div className="flex-1">

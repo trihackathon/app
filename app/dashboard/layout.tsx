@@ -22,6 +22,8 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       <AppHeader
         teamName={team?.name ?? "チーム未設定"}
         onSos={() => setSosOpen(true)}
+        userAvatarUrl={user?.avatar_url}
+        userName={user?.name}
       />
 
       <main>{children}</main>

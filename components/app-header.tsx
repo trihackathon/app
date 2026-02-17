@@ -3,13 +3,16 @@
 import { useRouter } from "next/navigation"
 import { HandHelping, Skull } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { MemberAvatar } from "@/components/member-avatar"
 
 interface AppHeaderProps {
   teamName: string
   onSos: () => void
+  userAvatarUrl?: string
+  userName?: string
 }
 
-export function AppHeader({ teamName, onSos }: AppHeaderProps) {
+export function AppHeader({ teamName, onSos, userAvatarUrl, userName }: AppHeaderProps) {
   const router = useRouter()
 
   return (
@@ -42,6 +45,17 @@ export function AppHeader({ teamName, onSos }: AppHeaderProps) {
             aria-label="葬式モードを確認"
           >
             <Skull className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={() => router.push("/dashboard/settings")}
+            className="transition-opacity hover:opacity-80"
+            aria-label="設定"
+          >
+            <MemberAvatar
+              src={userAvatarUrl}
+              name={userName || "?"}
+              size="sm"
+            />
           </button>
         </div>
       </div>
