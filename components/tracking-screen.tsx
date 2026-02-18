@@ -540,7 +540,7 @@ export function TrackingScreen() {
             <div
               className={cn(
                 "h-full rounded-full transition-all duration-500",
-                displayDistanceKm >= goalDistanceKm ? "bg-accent" : "bg-primary"
+                displayDistanceKm >= effectiveGoalKm ? "bg-accent" : "bg-primary"
               )}
               style={{
                 width: `${Math.min(100, (displayDistanceKm / safeGoalKm) * 100)}%`,
@@ -571,7 +571,7 @@ export function TrackingScreen() {
             <div
               className={cn(
                 "h-full rounded-full transition-all duration-500",
-                weeklyQualifiedVisits >= goalVisitsPerWeek ? "bg-accent" : "bg-primary"
+                (goalDurationMin != null ? weeklyQualifiedVisits : weeklyVisits) >= effectiveGoalVisits ? "bg-accent" : "bg-primary"
               )}
               style={{
                 width: `${Math.min(100, (weeklyQualifiedVisits / safeGoalVisits) * 100)}%`,
