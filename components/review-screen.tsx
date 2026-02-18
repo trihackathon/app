@@ -1,17 +1,42 @@
 "use client"
 
-import { useState } from "react"
-import { MapPin, Clock, Footprints, Check, X, MessageSquare, Loader2 } from "lucide-react"
+import { useState, useMemo } from "react"
+import { MapPin, Clock, Footprints, Check, X, MessageSquare, Loader2, ArrowUpDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useDashboard } from "@/components/dashboard-context"
 import { postActivityReview, getActivityReviews } from "@/lib/api/endpoints"
 import type { ActivityResponse, ActivityReviewResponse } from "@/types/api"
 
+type SortOption = "date-desc" | "date-asc" | "distance-desc" | "distance-asc" | "duration-desc" | "duration-asc"
+
 export function ReviewScreen() {
   const { activities, user } = useDashboard()
+  const [sortBy, setSortBy] = useState<SortOption>("date-desc")
 
   const completedActivities = activities.filter((a) => a.status === "completed")
   const inProgressActivities = activities.filter((a) => a.status === "in_progress")
+
+  // ソートされた完了済みアクティビティ
+  const sortedCompletedActivities = useMemo(() => {
+    const sorted = [...completedActivities]
+    
+    switch (sortBy) {
+      case "date-desc":
+        return sorted.sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime())
+      case "date-asc":
+        return sorted.sort((a, b) => new Date(a.started_at).getTime() - new Date(b.started_at).getTime())
+      case "distance-desc":
+        return sorted.sort((a, b) => (b.distance_km || 0) - (a.distance_km || 0))
+      case "distance-asc":
+        return sorted.sort((a, b) => (a.distance_km || 0) - (b.distance_km || 0))
+      case "duration-desc":
+        return sorted.sort((a, b) => (b.duration_min || 0) - (a.duration_min || 0))
+      case "duration-asc":
+        return sorted.sort((a, b) => (a.duration_min || 0) - (b.duration_min || 0))
+      default:
+        return sorted
+    }
+  }, [completedActivities, sortBy])
 
   return (
     <div className="mx-auto max-w-md px-4 pb-24 pt-6">
@@ -34,11 +59,33 @@ export function ReviewScreen() {
       )}
 
       <div>
-        <h2 className="mb-3 text-sm font-bold text-foreground">
-          完了済み ({completedActivities.length})
-        </h2>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-bold text-foreground">
+            完了済み ({completedActivities.length})
+          </h2>
+          
+          {/* ソート選択 */}
+          {completedActivities.length > 0 && (
+            <div className="relative">
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as SortOption)}
+                className="appearance-none rounded-lg border border-border bg-secondary px-3 py-1.5 pr-8 text-xs text-foreground hover:bg-secondary/80 focus:outline-none focus:ring-1 focus:ring-primary"
+              >
+                <option value="date-desc">新しい順</option>
+                <option value="date-asc">古い順</option>
+                <option value="distance-desc">距離：長い順</option>
+                <option value="distance-asc">距離：短い順</option>
+                <option value="duration-desc">時間：長い順</option>
+                <option value="duration-asc">時間：短い順</option>
+              </select>
+              <ArrowUpDown className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+            </div>
+          )}
+        </div>
+        
         <div className="flex flex-col gap-4">
-          {completedActivities.map((activity) => (
+          {sortedCompletedActivities.map((activity) => (
             <ActivityCard key={activity.id} activity={activity} currentUserId={user?.id} />
           ))}
         </div>
