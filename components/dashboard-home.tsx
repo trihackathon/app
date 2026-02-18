@@ -90,7 +90,7 @@ export function DashboardHome({ team, teamStatus, countdown }: DashboardHomeProp
       {/* Rope & HP */}
       <div className="relative mb-6 rounded-2xl border border-border bg-card p-6">
         <div className="flex flex-col items-center">
-          <RopeVisual hp={hp} size={160} />
+          <RopeVisual hp={hp} size={220} />
           <div className="mt-4 flex items-baseline gap-2">
             <span className={cn("text-4xl font-black animate-count-pulse", hpColor)}>
               {hp}

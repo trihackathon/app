@@ -72,7 +72,7 @@ export function FuneralMode({ onRetry, onBackToLanding }: FuneralModeProps) {
     <div className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center px-4 py-12">
       {/* Broken Rope */}
       <div className="mb-8">
-        <RopeVisual hp={0} size={180} animated />
+        <RopeVisual hp={0} size={240} animated />
       </div>
 
       <h1 className="mb-2 text-center text-3xl font-black text-foreground">

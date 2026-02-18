@@ -680,7 +680,7 @@ export function TeamCreation({ onComplete, onBack }: TeamCreationProps) {
       {step === "waiting" && (
         <div className="flex flex-1 flex-col items-center justify-center text-center px-4">
           <div className="mb-8">
-            <RopeVisual hp={memberCount * 33} size={160} />
+            <RopeVisual hp={memberCount * 33} size={220} />
           </div>
 
           <h1 className="mb-4 text-2xl font-black text-foreground">
