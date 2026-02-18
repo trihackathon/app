@@ -27,6 +27,8 @@ export function TrackingScreen() {
   const myWeeklyProgress = currentEvaluation?.members?.find((m) => m.user_id === user?.id)
   const weeklyDistanceKm = myWeeklyProgress?.total_distance_km ?? 0
   const weeklyVisits = myWeeklyProgress?.total_visits ?? 0
+  const weeklyQualifiedVisits = myWeeklyProgress?.qualified_visits ?? 0
+  const weeklyTotalDurationMin = myWeeklyProgress?.total_duration_min ?? 0
   const [mode, setMode] = useState<Mode>((team?.exercise_type as Mode) || "running")
 
   // チームのexercise_typeが変わったら同期
@@ -548,26 +550,75 @@ export function TrackingScreen() {
 
       {hasGoal && mode === "gym" && goalVisitsPerWeek != null && (
         <div className="mb-6 rounded-xl border border-border bg-card p-4">
+          {/* 週の訪問回数（達成済み＝滞在時間目標クリア） */}
           <div className="mb-2 flex items-center justify-between text-sm">
             <span className="text-muted-foreground">今週の目標</span>
             <span className="font-bold text-foreground">
-              {`${weeklyVisits} / ${goalVisitsPerWeek} 回`}
+              {goalDurationMin != null
+                ? `${weeklyQualifiedVisits} / ${goalVisitsPerWeek} 回達成`
+                : `${weeklyVisits} / ${goalVisitsPerWeek} 回`}
             </span>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-secondary">
             <div
               className={cn(
                 "h-full rounded-full transition-all duration-500",
-                weeklyVisits >= goalVisitsPerWeek ? "bg-accent" : "bg-primary"
+                weeklyQualifiedVisits >= goalVisitsPerWeek ? "bg-accent" : "bg-primary"
               )}
               style={{
-                width: `${Math.min(100, (weeklyVisits / safeGoalVisits) * 100)}%`,
+                width: `${Math.min(100, (weeklyQualifiedVisits / safeGoalVisits) * 100)}%`,
               }}
             />
           </div>
           <div className="mt-1 text-right text-xs text-muted-foreground">
-            {`${Math.min(100, Math.round((weeklyVisits / safeGoalVisits) * 100))}%`}
+            {`${Math.min(100, Math.round((weeklyQualifiedVisits / safeGoalVisits) * 100))}%`}
           </div>
+
+          {/* 滞在時間目標がある場合: 1回あたりの目標時間と今週の合計時間を表示 */}
+          {goalDurationMin != null && (
+            <div className="mt-3 border-t border-border pt-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">1回あたりの目標</span>
+                <span className="font-bold text-foreground">{goalDurationMin} 分以上</span>
+              </div>
+              <div className="mt-1 flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">今週の合計滞在時間</span>
+                <span className="font-bold text-foreground">{weeklyTotalDurationMin} 分</span>
+              </div>
+              {/* 目標未達の訪問がある場合に注記 */}
+              {weeklyVisits > weeklyQualifiedVisits && (
+                <p className="mt-1.5 text-xs text-destructive">
+                  {weeklyVisits - weeklyQualifiedVisits}回は目標時間に達していません
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* トラッキング中: 現在のセッション時間と目標を比較 */}
+          {isTracking && goalDurationMin != null && (
+            <div className="mt-3 border-t border-border pt-3">
+              <div className="mb-1.5 flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">今回の滞在時間</span>
+                <span className={cn(
+                  "font-bold",
+                  Math.floor(elapsed / 60) >= goalDurationMin ? "text-accent" : "text-foreground"
+                )}>
+                  {Math.floor(elapsed / 60)} / {goalDurationMin} 分
+                </span>
+              </div>
+              <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
+                <div
+                  className={cn(
+                    "h-full rounded-full transition-all duration-500",
+                    Math.floor(elapsed / 60) >= goalDurationMin ? "bg-accent" : "bg-primary"
+                  )}
+                  style={{
+                    width: `${Math.min(100, (Math.floor(elapsed / 60) / goalDurationMin) * 100)}%`,
+                  }}
+                />
+              </div>
+            </div>
+          )}
         </div>
       )}
 

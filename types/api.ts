@@ -199,6 +199,7 @@ export type CurrentWeekMemberProgress = {
   user_name: string;
   total_distance_km: number;
   total_visits: number;
+  qualified_visits: number; // 滞在時間目標を満たした訪問回数
   total_duration_min: number;
   target_progress_percent: number;
   on_track: boolean;
