@@ -58,10 +58,15 @@ export function TrackingScreen() {
   const goalVisitsPerWeek = team?.goal?.target_visits_per_week ?? null
   const hasGoal = team?.goal != null
 
+  // 自分の目標倍率（前週チーム未達成時、達成者は1.5倍）
+  const myTargetMultiplier = myWeeklyProgress?.target_multiplier ?? 1
+
   // 表示用の累積値（ランニング中は今週の累積 + 今回の距離）
   const displayDistanceKm = mode === "running" ? weeklyDistanceKm + distance : weeklyDistanceKm
-  const safeGoalKm = goalDistanceKm && goalDistanceKm > 0 ? goalDistanceKm : 1
-  const safeGoalVisits = goalVisitsPerWeek && goalVisitsPerWeek > 0 ? goalVisitsPerWeek : 1
+  const effectiveGoalKm = goalDistanceKm != null ? goalDistanceKm * myTargetMultiplier : null
+  const effectiveGoalVisits = goalVisitsPerWeek != null ? Math.ceil(goalVisitsPerWeek * myTargetMultiplier) : null
+  const safeGoalKm = effectiveGoalKm != null && effectiveGoalKm > 0 ? effectiveGoalKm : 1
+  const safeGoalVisits = effectiveGoalVisits != null && effectiveGoalVisits > 0 ? effectiveGoalVisits : 1
 
   // 進行中のアクティビティを復元する
   useEffect(() => {
@@ -520,12 +525,15 @@ export function TrackingScreen() {
       </div>
 
       {/* Goal Progress - 今週の累積を表示（目標設定がある場合のみ） */}
-      {hasGoal && mode === "running" && goalDistanceKm != null && (
+      {hasGoal && mode === "running" && effectiveGoalKm != null && (
         <div className="mb-6 rounded-xl border border-border bg-card p-4">
           <div className="mb-2 flex items-center justify-between text-sm">
             <span className="text-muted-foreground">今週の目標</span>
             <span className="font-bold text-foreground">
-              {`${displayDistanceKm.toFixed(1)} / ${goalDistanceKm} km`}
+              {`${displayDistanceKm.toFixed(1)} / ${effectiveGoalKm.toFixed(1)} km`}
+              {myTargetMultiplier > 1 && (
+                <span className="ml-1 text-xs font-normal text-destructive">(前週チーム未達成のため1.5倍)</span>
+              )}
             </span>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-secondary">
@@ -545,15 +553,18 @@ export function TrackingScreen() {
         </div>
       )}
 
-      {hasGoal && mode === "gym" && goalVisitsPerWeek != null && (
+      {hasGoal && mode === "gym" && effectiveGoalVisits != null && (
         <div className="mb-6 rounded-xl border border-border bg-card p-4">
           {/* 週の訪問回数（達成済み＝滞在時間目標クリア） */}
           <div className="mb-2 flex items-center justify-between text-sm">
             <span className="text-muted-foreground">今週の目標</span>
             <span className="font-bold text-foreground">
               {goalDurationMin != null
-                ? `${weeklyQualifiedVisits} / ${goalVisitsPerWeek} 回達成`
-                : `${weeklyVisits} / ${goalVisitsPerWeek} 回`}
+                ? `${weeklyQualifiedVisits} / ${effectiveGoalVisits} 回達成`
+                : `${weeklyVisits} / ${effectiveGoalVisits} 回`}
+              {myTargetMultiplier > 1 && (
+                <span className="ml-1 text-xs font-normal text-destructive">(前週チーム未達成のため1.5倍)</span>
+              )}
             </span>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-secondary">

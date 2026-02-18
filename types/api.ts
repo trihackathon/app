@@ -203,6 +203,7 @@ export type CurrentWeekMemberProgress = {
   total_duration_min: number;
   target_progress_percent: number;
   on_track: boolean;
+  target_multiplier: number; // 1.0=通常, 1.5=前週未達成ペナルティ
   activities_this_week: WeekActivitySummary[];
   avatar_url?: string;
 };
