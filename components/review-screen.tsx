@@ -5,6 +5,7 @@ import { MapPin, Clock, Footprints, Check, X, MessageSquare, Loader2, ArrowUpDow
 import { cn } from "@/lib/utils"
 import { useDashboard } from "@/components/dashboard-context"
 import { postActivityReview, getActivityReviews } from "@/lib/api/endpoints"
+import { useToast } from "@/hooks/use-toast"
 import type { ActivityResponse, ActivityReviewResponse } from "@/types/api"
 
 type SortOption = "date-desc" | "date-asc" | "distance-desc" | "distance-asc" | "duration-desc" | "duration-asc"
@@ -145,6 +146,7 @@ function ActivityCard({ activity, currentUserId }: { activity: ActivityResponse;
   const [loadingReviews, setLoadingReviews] = useState(false)
   const [reviewSubmitted, setReviewSubmitted] = useState(false)
   const { refreshActivities } = useDashboard()
+  const { toast } = useToast()
 
   const handleReview = async (status: "approved" | "rejected") => {
     setIsSubmitting(true)
@@ -155,6 +157,16 @@ function ActivityCard({ activity, currentUserId }: { activity: ActivityResponse;
       setComment("")
       setReviewSubmitted(true)
       refreshActivities()
+      toast({
+        title: status === "approved" ? "✓ 承認しました" : "✗ 却下しました",
+        description: `${activity.user_name}さんの活動をレビューしました`,
+      })
+    } else {
+      toast({
+        title: "エラー",
+        description: "レビューの投稿に失敗しました",
+        variant: "destructive",
+      })
     }
   }
 
