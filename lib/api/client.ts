@@ -10,19 +10,16 @@ async function getAuthToken(): Promise<string | null> {
   let attempts = 0;
 
   while (!user && attempts < 6) {
-    console.log(`[AUTH] Waiting for currentUser... attempt ${attempts + 1}/6`);
     await new Promise((resolve) => setTimeout(resolve, 500));
     user = firebaseAuth.currentUser;
     attempts++;
   }
 
   if (!user) {
-    console.error("[AUTH] No authenticated user found after waiting");
     return null;
   }
 
   const token = await user.getIdToken(true);
-  console.log("[AUTH] Token acquired:", token.substring(0, 50) + "...");
   return token;
 }
 
@@ -40,18 +37,13 @@ async function request<T>(
       headers["Authorization"] = `Bearer ${token}`;
     }
 
-    console.log(`[API] ${method} ${API_URL}${path}`);
-
     const res = await fetch(`${API_URL}${path}`, {
       method,
       headers,
       body: body ? JSON.stringify(body) : undefined,
     });
 
-    console.log(`[API] Response status: ${res.status} ${res.statusText}`);
-
     const responseText = await res.text();
-    console.log(`[API] Response text:`, responseText);
 
     let data;
     try {
@@ -64,7 +56,6 @@ async function request<T>(
     }
 
     if (!res.ok) {
-      console.error(`[API] Error ${res.status}:`, data);
       const err = data as ErrorResponse;
       // ステータスコードをエラーに含める
       if (!err.error) {
@@ -79,7 +70,6 @@ async function request<T>(
     return { ok: true, data: data as T };
   } catch (e) {
     const message = e instanceof Error ? e.message : "Unknown error";
-    console.error(`[API] Exception:`, e);
     return { ok: false, error: { error: "network_error", message } };
   }
 }
@@ -99,19 +89,13 @@ async function requestForm<T>(
       headers["Authorization"] = `Bearer ${token}`;
     }
 
-    console.log(`[API] ${method} ${API_URL}${path} (form-urlencoded)`);
-    console.log("[API] Params:", params.toString());
-
     const res = await fetch(`${API_URL}${path}`, {
       method,
       headers,
       body: params.toString(),
     });
 
-    console.log(`[API] Response status: ${res.status} ${res.statusText}`);
-
     const responseText = await res.text();
-    console.log(`[API] Response text:`, responseText);
 
     let data;
     try {
@@ -124,7 +108,6 @@ async function requestForm<T>(
     }
 
     if (!res.ok) {
-      console.error(`[API] Error ${res.status}:`, data);
       const err = data as ErrorResponse;
       if (!err.error) err.error = `HTTP ${res.status}`;
       if (!err.message) err.message = res.statusText || "Unknown error";
@@ -134,7 +117,6 @@ async function requestForm<T>(
     return { ok: true, data: data as T };
   } catch (e) {
     const message = e instanceof Error ? e.message : "Unknown error";
-    console.error(`[API] Exception:`, e);
     return { ok: false, error: { error: "network_error", message } };
   }
 }
@@ -153,18 +135,13 @@ async function requestMultipart<T>(
       headers["Authorization"] = `Bearer ${token}`;
     }
 
-    console.log(`[API] ${method} ${API_URL}${path} (multipart/form-data)`);
-
     const res = await fetch(`${API_URL}${path}`, {
       method,
       headers,
       body: formData,
     });
 
-    console.log(`[API] Response status: ${res.status} ${res.statusText}`);
-
     const responseText = await res.text();
-    console.log(`[API] Response text:`, responseText);
 
     let data;
     try {
@@ -177,7 +154,6 @@ async function requestMultipart<T>(
     }
 
     if (!res.ok) {
-      console.error(`[API] Error ${res.status}:`, data);
       const err = data as ErrorResponse;
       if (!err.error) err.error = `HTTP ${res.status}`;
       if (!err.message) err.message = res.statusText || "Unknown error";
@@ -187,7 +163,6 @@ async function requestMultipart<T>(
     return { ok: true, data: data as T };
   } catch (e) {
     const message = e instanceof Error ? e.message : "Unknown error";
-    console.error(`[API] Exception:`, e);
     return { ok: false, error: { error: "network_error", message } };
   }
 }

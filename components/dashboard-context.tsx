@@ -124,7 +124,6 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         if (!userResult.ok) {
           // 422エラーの場合、バックエンドにユーザーが作成されていない
           if (userResult.error.error?.includes('422')) {
-            console.log('[Dashboard] User not found in backend (422), redirecting to signup')
             redirecting = true
             router.push("/auth/signup")
             return
@@ -140,7 +139,6 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         if (cancelled) return
         if (!teamResult.ok) {
           // Team not found (404 or 422) → redirect to create-team
-          console.log('[Dashboard] No team found, redirecting to create-team')
           redirecting = true
           router.push("/create-team")
           return
@@ -158,27 +156,22 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
 
         if (cancelled) return
 
-        // エラー詳細をログ出力
         if (!statusResult.ok) {
-          console.warn('[Dashboard] Team status fetch failed:', statusResult.error)
         } else {
           setTeamStatus(statusResult.data)
         }
 
         if (!activitiesResult.ok) {
-          console.warn('[Dashboard] Activities fetch failed:', activitiesResult.error)
         } else {
           setActivities(activitiesResult.data)
         }
 
         if (!evalResult.ok) {
-          console.warn('[Dashboard] Current evaluation fetch failed:', evalResult.error)
         } else {
           setCurrentEvaluation(evalResult.data)
         }
 
         if (!predictionResult.ok) {
-          console.warn('[Dashboard] Prediction fetch failed:', predictionResult.error)
         } else {
           setPrediction(predictionResult.data)
         }

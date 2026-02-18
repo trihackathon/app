@@ -80,8 +80,7 @@ export function TeamCreation({ onComplete, onBack }: TeamCreationProps) {
             }, 3000)
           }
         }
-      } catch (error) {
-        console.error("既存チームの確認に失敗:", error)
+      } catch {
       } finally {
         setResumingTeam(false)
       }
@@ -133,8 +132,7 @@ export function TeamCreation({ onComplete, onBack }: TeamCreationProps) {
         setDebugInfo(result.data)
         setShowDebugInfo(true)
       }
-    } catch (error) {
-      console.error("デバッグ情報の取得に失敗:", error)
+    } catch {
     }
   }
 

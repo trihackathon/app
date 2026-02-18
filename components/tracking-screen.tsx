@@ -107,15 +107,12 @@ export function TrackingScreen() {
                 })
                 sendBufferedPoints(inProgressActivity.id)
               },
-              (err) => {
-                console.error("GPS tracking error:", err)
-              },
+              () => {},
               { enableHighAccuracy: true, maximumAge: 3000, timeout: 10000 }
             )
           }
         }
-      } catch (err) {
-        console.error("Failed to restore activity:", err)
+      } catch {
       } finally {
         setIsRestoring(false)
       }
